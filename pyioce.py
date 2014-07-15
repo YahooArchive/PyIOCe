@@ -2,59 +2,10 @@
 
 
 import wx
-import os
 from wx.lib.mixins.listctrl import ColumnSorterMixin
-import sys
-import uuid
-
-class IOC():
-    def __init__(self, dummyname, dummyuuid, dummymodified):
-        self.dummyname = dummyname
-        self.dummyuuid = dummyuuid
-        self.dummymodified = dummymodified
-
-        self.orig_xml = None
-        self.mod_xml = None
-
-    def get_uuid(self):
-        # uuid = ""
-        # if self.mod_xml == None:
-        #     uuid = "Orig XML"
-        # else:
-        #     uuid = "Mod XML"
-        # return uuid
-        return self.dummyuuid
-
-    def get_name(self):
-        return self.dummyname
-
-    def get_modified(self):
-        return self.dummymodified
-
-    def get_metadata(field):
-        pass
-
-    def get_keys(self):
-        pass
-
-    def get_indicator(self):
-        pass
-
-class IOCList():
-    def __init__(self):
-        self.iocs = {
-         'af1dfc8b-bdd9-40f7-92a6-f8e2c7391db3': IOC('IOC1','af1dfc8b-bdd9-40f7-92a6-f8e2c7391db3','12 Jun 12'),
-        '3c95f06b-a3d8-4021-a05a-207ec67afb12': IOC('IOC2','3c95f06b-a3d8-4021-a05a-207ec67afb12','12 Jun 12'),
-        'bdbbd16d-b674-4cea-bc2a-0a1ec70a5bb8': IOC('IOC3','bdbbd16d-b674-4cea-bc2a-0a1ec70a5bb8','12 Jun 12')
-        }        
-
-    def add_ioc(self,ioc):
-        pass
-        #add IOC to list
-
-    def open_iocs(self,dir):
-        pass
-        #open dir of IOCs
+from ioc import *
+from lxml import etree as et
+import wx.lib.scrolledpanel as sp
 
 class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def __init__(self, parent):
@@ -66,12 +17,14 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
 class PyIOCe(wx.Frame):
 
+#
+#   Initialize all views and variables
+#
     def __init__(self, *args, **kwargs):
         super(PyIOCe, self).__init__(*args, **kwargs) 
             
         self.init_data()
         self.init_ui()
- 
 
     def init_file_menu(self, menubar):
         file_menu = wx.Menu()
@@ -89,7 +42,7 @@ class PyIOCe(wx.Frame):
 
     def init_menubar(self):
         menubar = wx.MenuBar()
-      
+ 
         self.init_file_menu(menubar)
         self.init_help_menu(menubar)  
         
@@ -100,25 +53,25 @@ class PyIOCe(wx.Frame):
 
         self.toolbar_search = wx.TextCtrl(toolbar, size=(200,0))
 
-        toolbar.AddSimpleTool(1, wx.Image('new.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'New', '')
-        toolbar.AddSimpleTool(2, wx.Image('save.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save', '')
-        toolbar.AddSimpleTool(3, wx.Image('saveall.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save All', '')
-        toolbar.AddSeparator()
+        toolbar.AddSimpleTool(1, wx.Image('./images/new.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'New', '')
+        toolbar.AddSimpleTool(10, wx.Image('./images/open.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Open Dir', '')
+        toolbar.AddSimpleTool(2, wx.Image('./images/save.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save', '')
+        toolbar.AddSimpleTool(3, wx.Image('./images/saveall.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save All', '')
+        
         toolbar.AddSeparator()
         toolbar.AddSeparator()
         toolbar.AddStretchableSpace()
         toolbar.AddControl(self.toolbar_search,'Search')
         toolbar.AddStretchableSpace()
-        toolbar.AddSimpleTool(4, wx.Image('case.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Case', '')
-        toolbar.AddSimpleTool(5, wx.Image('lnot.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Not', '')
-        toolbar.AddSimpleTool(6, wx.Image('land.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'And', '')
-        toolbar.AddSimpleTool(7, wx.Image('lor.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Or', '')
-        toolbar.AddSimpleTool(8, wx.Image('add.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Add Item', '')
-        toolbar.AddSimpleTool(9, wx.Image('remove.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Remove Item', '')
+        toolbar.AddSimpleTool(4, wx.Image('./images/case.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Case', '')
+        toolbar.AddSimpleTool(5, wx.Image('./images/lnot.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Not', '')
+        toolbar.AddSimpleTool(6, wx.Image('./images/land.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'And', '')
+        toolbar.AddSimpleTool(7, wx.Image('./images/lor.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Or', '')
+        toolbar.AddSimpleTool(8, wx.Image('./images/insert.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Add Item', '')
+        toolbar.AddSimpleTool(9, wx.Image('./images/delete.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Remove Item', '')
 
 
         toolbar.Realize()
-        toolbar.Fit()
  
         self.Bind(wx.EVT_TOOL, self.on_new, id=1)
         self.Bind(wx.EVT_TOOL, self.on_save, id=2)
@@ -127,44 +80,26 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.on_not, id=5)
         self.Bind(wx.EVT_TOOL, self.on_and, id=6)
         self.Bind(wx.EVT_TOOL, self.on_or, id=7)
-        self.Bind(wx.EVT_TOOL, self.on_add, id=8)
-        self.Bind(wx.EVT_TOOL, self.on_remove, id=9)
+        self.Bind(wx.EVT_TOOL, self.on_insert, id=8)
+        self.Bind(wx.EVT_TOOL, self.on_delete, id=9)
+        self.Bind(wx.EVT_TOOL, self.on_open, id=10)
+
 
     def init_statusbar(self):
         self.statusbar = self.CreateStatusBar()
-        self.statusbar.SetStatusText("No IOC")
+        self.update_status_bar()
 
-    def init_ioc_list_ctrl(self, ioc_list_panel):
+    def init_ioc_list_panel(self, vsplitter):
+        ioc_list_panel = wx.Panel(vsplitter)
+
+        hbox = wx.BoxSizer(wx.HORIZONTAL)
+
         self.ioc_list_ctrl = IOCListCtrl(ioc_list_panel)
         self.ioc_list_ctrl.InsertColumn(0, 'Name', width=140)
         self.ioc_list_ctrl.InsertColumn(1, 'UUID', width=130)
         self.ioc_list_ctrl.InsertColumn(2, 'Modified', wx.LIST_FORMAT_RIGHT, 90)
 
-        self.ioc_list_ctrl.itemDataMap = {}
-        self.ioc_list_ctrl.index = 0
-
-        for ioc in self.ioc_list.iocs:
-            index = len(self.ioc_list_ctrl.itemDataMap)
-            
-            ioc_name = self.ioc_list.iocs[ioc].get_name()
-            ioc_uuid = self.ioc_list.iocs[ioc].get_uuid()
-            ioc_modified = self.ioc_list.iocs[ioc].get_modified()
-
-            self.ioc_list_ctrl.itemDataMap[index] = (ioc_name, ioc_uuid, ioc_modified)
-
-            self.ioc_list_ctrl.InsertStringItem(index, ioc_name)
-            self.ioc_list_ctrl.SetStringItem(index, 1, ioc_uuid)
-            self.ioc_list_ctrl.SetStringItem(index, 2, ioc_modified)
-            self.ioc_list_ctrl.SetItemData(index, index)
-
-    def init_ioc_list_panel(self, vsplitter):
-
-        ioc_list_panel = wx.Panel(vsplitter)
-        ioc_list_panel.SetBackgroundColour("#ffffff")
-
-        hbox = wx.BoxSizer(wx.HORIZONTAL)
-        self.init_ioc_list_ctrl(ioc_list_panel)
-        hbox.Add(self.ioc_list_ctrl, 1, wx.EXPAND)
+        hbox.Add(self.ioc_list_ctrl, 1, flag = wx.EXPAND)
         ioc_list_panel.SetSizer(hbox)
 
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_select)
@@ -179,7 +114,7 @@ class PyIOCe(wx.Frame):
 
         #UUID Label
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.ioc_uuid_view = wx.StaticText(ioc_metadata_panel, label="uuid")
+        self.ioc_uuid_view = wx.StaticText(ioc_metadata_panel, label="")
         self.ioc_uuid_view.Font = wx.Font(14, wx.DEFAULT, wx.NORMAL, wx.BOLD)
         hbox1.Add(self.ioc_uuid_view)
         
@@ -194,8 +129,8 @@ class PyIOCe(wx.Frame):
         ioc_author_label = wx.StaticText(ioc_metadata_panel, label="Author:")
         ioc_modified_label = wx.StaticText(ioc_metadata_panel, label="Modified:")
   
-        self.ioc_created_view = wx.StaticText(ioc_metadata_panel, label="XXXTXX:XX:XX")
-        self.ioc_modified_view = wx.StaticText(ioc_metadata_panel, label="XX-XX-XXX:XX:XX")
+        self.ioc_created_view = wx.StaticText(ioc_metadata_panel, label="")
+        self.ioc_modified_view = wx.StaticText(ioc_metadata_panel, label="")
   
         self.ioc_name_view = wx.TextCtrl(ioc_metadata_panel)
         self.ioc_author_view = wx.TextCtrl(ioc_metadata_panel)
@@ -231,25 +166,57 @@ class PyIOCe(wx.Frame):
         ioc_metadata_panel.SetSizer(vbox)
         return ioc_metadata_panel
 
-    def init_ioc_indicator_panel(self, hsplitter):
-        ioc_indicator_panel = wx.Panel(hsplitter)
+    def init_ioc_indicator_page(self, ioc_notebook):
+        ioc_indicator_panel = wx.Panel(ioc_notebook)
         ioc_indicator_panel.SetBackgroundColour("#ccffcc")
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        st1 = wx.StaticText(ioc_indicator_panel, label="ioc indicator", style=wx.ALIGN_CENTRE)
-        vbox.Add(st1, flag=wx.ALL, border=5)
-        ioc_indicator_panel.SetSizer(vbox)
+
+        accel_table = wx.AcceleratorTable([
+            (wx.ACCEL_NORMAL,  ord('c'), 4),
+            (wx.ACCEL_NORMAL,  ord('n'), 5),
+            (wx.ACCEL_NORMAL,  ord('a'), 6),
+            (wx.ACCEL_NORMAL,  ord('o'), 7),
+            (wx.ACCEL_NORMAL,  ord('i'), 8),
+            (wx.ACCEL_NORMAL,  ord('d'), 9)
+                              ])
+        ioc_indicator_panel.SetAcceleratorTable(accel_table)
+
+
+
+
+
+
         return ioc_indicator_panel
 
+    def init_ioc_xml_page(self, ioc_notebook):
+        ioc_xml_panel = sp.ScrolledPanel(ioc_notebook, size=(800, 800))
+        ioc_xml_panel.SetBackgroundColour("#e8e8e8")
+        ioc_xml_panel.SetupScrolling()
+        ioc_xml_panel.AlwaysShowScrollbars(horz=True, vert=True)
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        self.ioc_xml_view = wx.StaticText(ioc_xml_panel, label="No IOC Selected", style=wx.ALIGN_LEFT|wx.TE_MULTILINE)
+        vbox.Add(self.ioc_xml_view, flag=wx.ALL, border=5)
+        ioc_xml_panel.SetSizer(vbox)
+
+        return ioc_xml_panel
+
+    def init_ioc_notebook(self, hsplitter):
+        ioc_notebook = wx.Notebook(hsplitter)
+        ioc_notebook.AddPage(self.init_ioc_indicator_page(ioc_notebook), "IOC")
+        ioc_notebook.AddPage(self.init_ioc_xml_page(ioc_notebook), "XML")
+        self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.on_page_changing)
+
+        return ioc_notebook
+
     def init_panes(self):
-        vsplitter = wx.SplitterWindow(self, size=(500,500))
-        hsplitter = wx.SplitterWindow(vsplitter)
+        vsplitter = wx.SplitterWindow(self, size=(500,500), style = wx.SP_LIVE_UPDATE | wx.SP_3D)
+        hsplitter = wx.SplitterWindow(vsplitter, style = wx.SP_LIVE_UPDATE |wx.SP_3D)
 
         ioc_list_panel = self.init_ioc_list_panel(vsplitter)
         ioc_metadata_panel = self.init_ioc_metadata_panel(hsplitter)
-        ioc_indicator_panel = self.init_ioc_indicator_panel(hsplitter)
+        ioc_notebook = self.init_ioc_notebook(hsplitter)
 
         vsplitter.SplitVertically(ioc_list_panel, hsplitter)
-        hsplitter.SplitHorizontally(ioc_metadata_panel, ioc_indicator_panel)
+        hsplitter.SplitHorizontally(ioc_metadata_panel, ioc_notebook)
     
     def init_ui(self):    
         self.init_menubar()
@@ -264,7 +231,7 @@ class PyIOCe(wx.Frame):
         
     def init_data(self):
         self.ioc_list = IOCList()
-        self.current_ioc = "Empty IOC Object"
+        self.current_ioc = None
         self.metadata_panel_short_desc = ""
         self.metadata_panel_author = ""
         self.metadata_panel_created = ""
@@ -273,20 +240,96 @@ class PyIOCe(wx.Frame):
         self.metadata_panel_keys = ""
         self.editor_panel_indicator_xml = ""
 
+#
+#  Update Displays
+#
+
+    def update_ioc_list_panel(self):
+
+        self.ioc_list_ctrl.DeleteAllItems()
+        self.ioc_list_ctrl.itemDataMap = {}
+        # self.ioc_list_ctrl.index = 0 #FIXME
+
+        for ioc in self.ioc_list.iocs:
+            index = len(self.ioc_list_ctrl.itemDataMap)
+            
+            ioc_name = self.ioc_list.iocs[ioc].get_name()
+            ioc_uuid = self.ioc_list.iocs[ioc].get_uuid()
+            ioc_modified = self.ioc_list.iocs[ioc].get_modified()
+
+            self.ioc_list_ctrl.itemDataMap[index] = (ioc_name, ioc_uuid, ioc_modified, ioc)
+
+            self.ioc_list_ctrl.InsertStringItem(index, " "+ioc_name)
+            self.ioc_list_ctrl.SetStringItem(index, 1, " "+ioc_uuid)
+            self.ioc_list_ctrl.SetStringItem(index, 2, ioc_modified)
+            self.ioc_list_ctrl.SetItemData(index, index)
+
+    def update_ioc_indicator_page(self):
+        pass
+    
+    def update_ioc_xml_page(self):
+        if self.current_ioc == None:
+            xml_view_string = "No IOC Selected"
+        else:
+            xml_view_string = et.tostring(self.current_ioc.working_xml)
+        self.ioc_xml_view.SetLabel(xml_view_string)
+
+    def update_ioc_metadata_panel(self):
+        #FIXME
+        self.ioc_author_view.SetLabel("FIXME")
+        self.ioc_name_view.SetLabel("FIXME")
+        self.ioc_desc_view.SetLabel("FIXME")
+
+        self.ioc_uuid_view.SetLabel(self.current_ioc.get_uuid())
+        self.ioc_created_view.SetLabel(self.current_ioc.get_created())
+        self.ioc_modified_view.SetLabel(self.current_ioc.get_modified())
+        self.ioc_author_view.SetLabel(self.current_ioc.get_author())
+        self.ioc_name_view.SetLabel(self.current_ioc.get_name())
+        self.ioc_desc_view.SetLabel(self.current_ioc.get_desc())
+
+        # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+
+    def update_status_bar(self, status_text="No IOC Selected"):
+        self.statusbar.SetStatusText(status_text)
+
+    def select_dir(self):
+        selected_dir = None
+
+        select_dir_dialog = wx.DirDialog(self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE)
+
+        if select_dir_dialog.ShowModal() == wx.ID_OK:
+            selected_dir = select_dir_dialog.GetPath()
+            
+        select_dir_dialog.Destroy()
+
+        return selected_dir
+
     def on_quit(self, e):
         self.Close()
 
     def on_open(self, e):
-        self.Close()
+        selected_dir = self.select_dir()
+        if selected_dir is not None:
+            self.ioc_list.open_ioc_path(selected_dir)
+            self.current_ioc = None
+            self.update_ioc_list_panel()
+            self.update_ioc_metadata_panel()
+            self.update_ioc_indicator_page()
+            self.update_ioc_xml_page()
+            self.update_status_bar(ioc_file)
 
     def on_about(self, e):
         self.Close()
 
     def on_select(self, e):
-        self.ioc_list_ctrl.index = e.m_itemIndex
+        # self.ioc_list_ctrl.index = e.m_itemIndex  #FIXME
         ioc_index = self.ioc_list_ctrl.GetItemData(e.m_itemIndex)
-        uuid = self.ioc_list_ctrl.itemDataMap[ioc_index][1]
-        self.current_ioc = self.ioc_list.iocs[uuid]
+        ioc_file = self.ioc_list_ctrl.itemDataMap[ioc_index][3]
+        self.current_ioc = self.ioc_list.iocs[ioc_file]
+        self.update_ioc_metadata_panel()
+        self.update_ioc_indicator_page()
+        self.update_ioc_xml_page()
+        self.update_status_bar(ioc_file)
 
     def on_new(self, e):
         self.Close()
@@ -298,26 +341,30 @@ class PyIOCe(wx.Frame):
         self.Close()
 
     def on_case(self, e):
-        self.Close()
+        print "case"
 
     def on_not(self, e):
-        self.Close()
+        print "not"
 
     def on_and(self, e):
-        self.Close()
+        print "and"
 
     def on_or(self, e):
-        self.Close()
+        print "or"
 
-    def on_add(self, e):
-        self.Close()
+    def on_insert(self, e):
+        print "insert"
 
-    def on_remove(self, e):
-        self.Close()
+    def on_delete(self, e):
+        print "delete"
+
+    def on_page_changing(self, e):
+        self.update_ioc_indicator_page()
+        self.update_ioc_xml_page()
 
 if __name__ == '__main__':
     app = wx.App()
 
     PyIOCe(None)
-    
+
     app.MainLoop()
