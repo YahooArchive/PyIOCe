@@ -7,6 +7,154 @@ from ioc import *
 from lxml import etree as et
 import wx.lib.scrolledpanel as sp
 
+class IOCTreeCtrl(wx.TreeCtrl):
+    def __init__(self, parent, ID):
+        wx.TreeCtrl.__init__(self, parent, ID)
+
+        self.root_item_id = None
+        self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.on_begin_drag)
+        self.Bind(wx.EVT_TREE_END_DRAG, self.on_end_drag)
+        self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_activated)
+        self.Bind(wx.EVT_TREE_SEL_CHANGED, self.on_select)
+
+    def on_select(self, event):
+        self.selected_item = event.GetItem()
+
+    def on_activated(self, event):
+        item_id = event.GetItem()
+        item_tag = self.GetItemData(item_id).GetData().tag
+        if item_tag == "Indicator":
+            if self.IsExpanded(item_id):
+                self.Collapse(item_id)
+            else:
+                self.Expand(item_id)
+        elif item_tag == "IndicatorItem":
+            print "Open Dialog" #FIXME
+
+    def on_begin_drag(self, event):
+        item_id = event.GetItem()
+
+        if item_id != self.GetRootItem():
+            self.selected_item_id = item_id
+            event.Allow()
+
+    def is_descendent(self, dst_item_id, src_item_id):
+        if dst_item_id == self.root_item_id:
+            return False
+        dst_item_parent_id = self.GetItemParent(dst_item_id)
+        if dst_item_parent_id == src_item_id:
+            return True
+        else:
+            return self.is_descendent(dst_item_parent_id, src_item_id)
+
+    def on_end_drag(self, evt):
+        src_item_id = self.selected_item_id
+        dst_item_id = evt.GetItem()
+
+        after_item_id = None
+        self.selected_item_id = None
+
+        if not dst_item_id.IsOk():
+            return
+
+        # Prevent move to own descendent
+        if self.is_descendent(dst_item_id, src_item_id):
+            return
+        # Prevent move to self
+        if src_item_id == dst_item_id:
+            return
+
+        # If moving to IndicatorIndicator item find set positioning and set destination to parent
+        if self.GetItemData(dst_item_id).GetData().tag == "IndicatorItem":
+            after_item_id = dst_item_id
+            dst_item_id = self.GetItemParent(dst_item_id)
+    
+    
+        branch = self.save_branch(src_item_id)
+        self.Delete(src_item_id)
+        
+        #Insert branch returning list of items that need to be expanded after move
+        expanded_item_list = self.insert_branch(branch, dst_item_id, after_item_id)
+        
+
+        for expand_item_id in expanded_item_list:
+            self.Expand(expand_item_id)
+
+        self.SelectItem(self.selected_item_id)
+
+    def build_tree(self, parent, parent_id):
+        for child in parent:
+            if child.tag.startswith("Indicator"):
+                if child.tag == "Indicator":
+                    label = child.get('operator')
+                if child.tag == "IndicatorItem":
+                    context = child.find('Context')
+                    content = child.find('Content')
+                    label = context.get('type') + ":" + context.get('search') + " " + child.get('condition') + " " + content.text
+                child_id = self.AppendItem(parent_id, label, data=(wx.TreeItemData(child)))
+                self.build_tree(child, child_id)
+
+    def LoadTree(self, criteria):        
+        indicator = criteria.find('Indicator')
+
+        if self.root_item_id != None:
+            self.DeleteAllItems()
+        self.root_item_id = self.AddRoot(indicator.get('operator'), data=wx.TreeItemData(indicator))
+
+        self.build_tree(indicator, self.root_item_id)
+
+        self.ExpandAll()
+
+    def save_branch(self,node, depth = 0):
+        item = {}
+        item['label'] = self.GetItemText(node)
+        item['data'] = self.GetItemPyData(node)
+        item['was-expanded'] = self.IsExpanded(node)
+        item['children'] = []
+        
+        children = self.GetChildrenCount(node, False)
+        child, cookie = self.GetFirstChild(node)
+        for i in xrange(children):
+            item['children'].append(self.save_branch(child, depth + 1))
+            child, cookie = self.GetNextChild(node, cookie)
+
+        if depth == 0:
+            return [item]
+        else:
+            return item
+
+
+    def insert_branch(self, branch, dst_item_id, after_item_id=None, top_level=True):
+        expanded_item_list = []
+        for item in branch:
+            if after_item_id:
+                insert_item_id = self.InsertItem(dst_item_id, after_item_id, item['label'])
+                if top_level:
+                    dst_item_element = self.GetItemData(dst_item_id).GetData()
+                    after_item_element = self.GetItemData(after_item_id).GetData()
+                    item_element = item['data']
+                    dst_item_element.insert(dst_item_element.index(after_item_element)+1,item_element)
+            else:
+                insert_item_id = self.AppendItem(dst_item_id, item['label'])
+                if top_level:
+                    dst_item_element = self.GetItemData(dst_item_id).GetData()
+                    item_element = item['data']
+                    dst_item_element.append(item_element)
+
+            self.SetItemPyData(insert_item_id, item['data'])
+
+            if self.selected_item_id == None:
+                self.selected_item_id = insert_item_id
+
+            if item['was-expanded'] == True:
+                expanded_item_list.append(insert_item_id)
+
+            if 'children' in item:
+                expanded_children_list = self.insert_branch(item['children'], insert_item_id)
+                expanded_item_list = expanded_item_list + expanded_children_list
+        return expanded_item_list
+
+
 class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT)
@@ -52,6 +200,7 @@ class PyIOCe(wx.Frame):
         toolbar = self.CreateToolBar()
 
         self.toolbar_search = wx.TextCtrl(toolbar, size=(200,0))
+        toolbar_search_label = wx.StaticText(toolbar, label="Search:")
 
         toolbar.AddSimpleTool(1, wx.Image('./images/new.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'New', '')
         toolbar.AddSimpleTool(10, wx.Image('./images/open.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Open Dir', '')
@@ -61,6 +210,7 @@ class PyIOCe(wx.Frame):
         toolbar.AddSeparator()
         toolbar.AddSeparator()
         toolbar.AddStretchableSpace()
+        toolbar.AddControl(toolbar_search_label)
         toolbar.AddControl(self.toolbar_search,'Search')
         toolbar.AddStretchableSpace()
         toolbar.AddSimpleTool(4, wx.Image('./images/case.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Case', '')
@@ -168,7 +318,7 @@ class PyIOCe(wx.Frame):
 
     def init_ioc_indicator_page(self, ioc_notebook):
         ioc_indicator_panel = wx.Panel(ioc_notebook)
-        ioc_indicator_panel.SetBackgroundColour("#ccffcc")
+        
 
         accel_table = wx.AcceleratorTable([
             (wx.ACCEL_NORMAL,  ord('c'), 4),
@@ -180,9 +330,11 @@ class PyIOCe(wx.Frame):
                               ])
         ioc_indicator_panel.SetAcceleratorTable(accel_table)
 
-
-
-
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        self.ioc_indicator_tree = IOCTreeCtrl(ioc_indicator_panel, -1)
+        self.ioc_indicator_tree.SetBackgroundColour("#ccffcc")
+        vbox.Add(self.ioc_indicator_tree, proportion=1, flag=wx.EXPAND)
+        ioc_indicator_panel.SetSizer(vbox)
 
 
         return ioc_indicator_panel
@@ -209,7 +361,7 @@ class PyIOCe(wx.Frame):
 
     def init_panes(self):
         vsplitter = wx.SplitterWindow(self, size=(500,500), style = wx.SP_LIVE_UPDATE | wx.SP_3D)
-        hsplitter = wx.SplitterWindow(vsplitter, style = wx.SP_LIVE_UPDATE |wx.SP_3D)
+        hsplitter = wx.SplitterWindow(vsplitter, style = wx.SP_LIVE_UPDATE | wx.SP_3D)
 
         ioc_list_panel = self.init_ioc_list_panel(vsplitter)
         ioc_metadata_panel = self.init_ioc_metadata_panel(hsplitter)
@@ -265,29 +417,46 @@ class PyIOCe(wx.Frame):
             self.ioc_list_ctrl.SetItemData(index, index)
 
     def update_ioc_indicator_page(self):
-        pass
+        # self.ioc_indicator_tree.ResetTree() #FIXME
+        if self.current_ioc != None:
+            self.ioc_indicator_tree.LoadTree(self.current_ioc.criteria)
     
     def update_ioc_xml_page(self):
-        if self.current_ioc == None:
-            xml_view_string = "No IOC Selected"
-        else:
+        if self.current_ioc != None:
             xml_view_string = et.tostring(self.current_ioc.working_xml)
+            
+        else:
+            xml_view_string = "No IOC Selected"
         self.ioc_xml_view.SetLabel(xml_view_string)
 
     def update_ioc_metadata_panel(self):
         #FIXME
-        self.ioc_author_view.SetLabel("FIXME")
-        self.ioc_name_view.SetLabel("FIXME")
-        self.ioc_desc_view.SetLabel("FIXME")
+        if self.current_ioc != None:
+            self.ioc_author_view.SetLabel("FIXME")
+            self.ioc_name_view.SetLabel("FIXME")
+            self.ioc_desc_view.SetLabel("FIXME")
 
-        self.ioc_uuid_view.SetLabel(self.current_ioc.get_uuid())
-        self.ioc_created_view.SetLabel(self.current_ioc.get_created())
-        self.ioc_modified_view.SetLabel(self.current_ioc.get_modified())
-        self.ioc_author_view.SetLabel(self.current_ioc.get_author())
-        self.ioc_name_view.SetLabel(self.current_ioc.get_name())
-        self.ioc_desc_view.SetLabel(self.current_ioc.get_desc())
+            self.ioc_uuid_view.SetLabel(self.current_ioc.get_uuid())
+            self.ioc_created_view.SetLabel(self.current_ioc.get_created())
+            self.ioc_modified_view.SetLabel(self.current_ioc.get_modified())
+            self.ioc_author_view.SetLabel(self.current_ioc.get_author())
+            self.ioc_name_view.SetLabel(self.current_ioc.get_name())
+            self.ioc_desc_view.SetLabel(self.current_ioc.get_desc())
 
-        # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+             # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+        else:
+            self.ioc_author_view.SetLabel("FIXME")
+            self.ioc_name_view.SetLabel("FIXME")
+            self.ioc_desc_view.SetLabel("FIXME")
+
+            self.ioc_uuid_view.SetLabel("")
+            self.ioc_created_view.SetLabel("")
+            self.ioc_modified_view.SetLabel("")
+            self.ioc_author_view.SetLabel("")
+            self.ioc_name_view.SetLabel("")
+            self.ioc_desc_view.SetLabel("")
+
+            # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
 
     def update_status_bar(self, status_text="No IOC Selected"):
         self.statusbar.SetStatusText(status_text)
@@ -304,10 +473,10 @@ class PyIOCe(wx.Frame):
 
         return selected_dir
 
-    def on_quit(self, e):
+    def on_quit(self, event):
         self.Close()
 
-    def on_open(self, e):
+    def on_open(self, event):
         selected_dir = self.select_dir()
         if selected_dir is not None:
             self.ioc_list.open_ioc_path(selected_dir)
@@ -316,14 +485,14 @@ class PyIOCe(wx.Frame):
             self.update_ioc_metadata_panel()
             self.update_ioc_indicator_page()
             self.update_ioc_xml_page()
-            self.update_status_bar(ioc_file)
+            self.update_status_bar()
 
-    def on_about(self, e):
+    def on_about(self, event):
         self.Close()
 
-    def on_select(self, e):
+    def on_select(self, event):
         # self.ioc_list_ctrl.index = e.m_itemIndex  #FIXME
-        ioc_index = self.ioc_list_ctrl.GetItemData(e.m_itemIndex)
+        ioc_index = self.ioc_list_ctrl.GetItemData(event.m_itemIndex)
         ioc_file = self.ioc_list_ctrl.itemDataMap[ioc_index][3]
         self.current_ioc = self.ioc_list.iocs[ioc_file]
         self.update_ioc_metadata_panel()
@@ -331,34 +500,35 @@ class PyIOCe(wx.Frame):
         self.update_ioc_xml_page()
         self.update_status_bar(ioc_file)
 
-    def on_new(self, e):
+    def on_new(self, event):
         self.Close()
 
-    def on_save(self, e):
+    def on_save(self, event):
         self.Close()
 
-    def on_saveall(self, e):
+    def on_saveall(self, event):
         self.Close()
 
-    def on_case(self, e):
+    def on_case(self, event):
         print "case"
 
-    def on_not(self, e):
+    def on_not(self, event):
         print "not"
 
-    def on_and(self, e):
+    def on_and(self, event):
         print "and"
 
-    def on_or(self, e):
+    def on_or(self, event):
         print "or"
 
-    def on_insert(self, e):
+    def on_insert(self, event):
         print "insert"
+        # print self.ioc_indicator_tree.selected_item
 
-    def on_delete(self, e):
+    def on_delete(self, event):
         print "delete"
 
-    def on_page_changing(self, e):
+    def on_page_changing(self, event):
         self.update_ioc_indicator_page()
         self.update_ioc_xml_page()
 

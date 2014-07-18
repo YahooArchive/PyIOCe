@@ -24,8 +24,9 @@ class IOC():
         self.desc = self.working_xml.find('metadata/description')
         self.author = self.working_xml.find('metadata/authored_by')
         self.created = self.working_xml.find('metadata/authored_date')
+        self.links = self.working_xml.find('metadata/links')
         self.attributes = self.working_xml.attrib
-        self.indicator = self.working_xml.find('criteria')
+        self.criteria = self.working_xml.find('criteria')
 
     def get_uuid(self):
         return self.attributes['id']
