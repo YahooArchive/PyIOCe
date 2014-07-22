@@ -30,11 +30,11 @@ NSMAP = {'xsi' : 'http://www.w3.org/2001/XMLSchema-instance',
 
 
 def make_IOC_root(id=None, version="1.1"):
-    root = et.Element('OpenIOC', nsmap = NSMAP)
-    
     if version == "1.0":
+        root = et.Element('ioc', nsmap = NSMAP)
         root.attrib['xmlns'] = "http://schemas.mandiant.com/2010/ioc"
     elif version == "1.1":
+        root = et.Element('OpenIOC', nsmap = NSMAP)
         root.attrib['xmlns'] = 'http://openioc.org/schemas/OpenIOC_1.1'
     else:
         raise ValueError('Invalid Version')
@@ -122,7 +122,15 @@ def make_criteria_node(indicator_node = None):
             raise ValueError('IndicatorNode has the incorrect tag.')
         definition_node.append(indicator_node)
     return definition_node
-    
+
+def make_definition_node(indicator_node = None):
+    definition_node = et.Element('definition')
+    if indicator_node is not None:
+        if indicator_node.tag != 'Indicator':
+            raise ValueError('IndicatorNode has the incorrect tag.')
+        definition_node.append(indicator_node)
+    return definition_node
+
 def make_parameters_node():
     parameters_node = et.Element('parameters')
     return parameters_node
@@ -160,15 +168,16 @@ def make_Indicator_node(operator, id = None):
     Indicator_node.attrib['operator'] = operator.upper()
     return Indicator_node
 
-def make_IndicatorItem_node(condition,
-                            document, 
-                            search, 
-                            content_type, 
-                            content, 
+def make_IndicatorItem_node(condition="is", 
+                            document="foo", 
+                            search="foo", 
+                            content_type="string", 
+                            content="foo", 
                             preserve_case = False,
                             negate = False,
                             context_type = 'mir', 
-                            id = None):
+                            id = None,
+                            version = "1.1"): #FIXME
     '''
     This makes a IndicatorItem element.  This contains the actual threat
     intelligence in the IOC.
@@ -198,23 +207,27 @@ def make_IndicatorItem_node(condition,
         an elementTree Element item
     
     '''
-    # validate condition
-    if condition not in valid_indicatoritem_conditions:
-        raise ValueError('Invalid IndicatorItem condition [%s]' % str(condition))
+
     IndicatorItem_node = et.Element('IndicatorItem')
+    
+    if version != "1.0":
+        if preserve_case:
+            IndicatorItem_node.attrib['preserve-case'] = 'true'
+        else:
+            IndicatorItem_node.attrib['preserve-case'] = 'false'
+        if negate:
+            IndicatorItem_node.attrib['negate'] = 'true'
+        else:
+            IndicatorItem_node.attrib['negate'] = 'false'
+
     if id:
         IndicatorItem_node.attrib['id'] = id
     else:
         IndicatorItem_node.attrib['id'] = get_guid()
     IndicatorItem_node.attrib['condition'] = condition
-    if preserve_case:
-        IndicatorItem_node.attrib['preserve-case'] = 'true'
-    else:
-        IndicatorItem_node.attrib['preserve-case'] = 'false'
-    if negate:
-        IndicatorItem_node.attrib['negate'] = 'true'
-    else:
-        IndicatorItem_node.attrib['negate'] = 'false'
+
+
+    
     context_node = make_context_node(document, search, context_type)
     content_node = make_content_node(content_type, content)
     IndicatorItem_node.append(context_node)
