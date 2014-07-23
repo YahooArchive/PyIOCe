@@ -145,7 +145,7 @@ class IOCList():
                 self.iocs[full_path].orig_xml = copy.copy(self.iocs[full_path].working_xml)
         else:
             for full_path in self.iocs:
-                if et.tostring(self.iocs[full_path].working_xml) == et.tostring(self.iocs[full_path].orig_xml):
+                if et.tostring(self.iocs[full_path].working_xml) != et.tostring(self.iocs[full_path].orig_xml):
                     self.iocs[full_path].set_modified()
                     ioc_xml_string = et.tostring(self.iocs[full_path].working_xml, encoding="utf-8", xml_declaration=True, pretty_print = True)
                     ioc_file = open(full_path, 'w')
@@ -163,6 +163,7 @@ class IOCList():
         self.iocs[full_path] = IOC(new_ioc_xml)
         self.iocs[full_path].set_modified()
         self.iocs[full_path].set_created()
+        self.iocs[full_path].orig_xml = et.Element('Clone')
 
         return full_path
 
@@ -185,6 +186,7 @@ class IOCList():
             new_ioc_xml.append(ioc_et.make_parameters_node())
 
         self.iocs[full_path] = IOC(new_ioc_xml)
+        self.iocs[full_path].orig_xml = et.Element('New')
 
         return full_path
 

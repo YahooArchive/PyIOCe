@@ -31,11 +31,13 @@ NSMAP = {'xsi' : 'http://www.w3.org/2001/XMLSchema-instance',
 
 def make_IOC_root(id=None, version="1.1"):
     if version == "1.0":
+        NSMAP[None] = "http://schemas.mandiant.com/2010/ioc"
         root = et.Element('ioc', nsmap = NSMAP)
-        root.attrib['xmlns'] = "http://schemas.mandiant.com/2010/ioc"
+        # root.attrib['xmlns'] = "http://schemas.mandiant.com/2010/ioc"
     elif version == "1.1":
+        NSMAP[None] = "http://openioc.org/schemas/OpenIOC_1.1"
         root = et.Element('OpenIOC', nsmap = NSMAP)
-        root.attrib['xmlns'] = 'http://openioc.org/schemas/OpenIOC_1.1'
+        # root.attrib['xmlns'] = 'http://openioc.org/schemas/OpenIOC_1.1'
     else:
         raise ValueError('Invalid Version')
 

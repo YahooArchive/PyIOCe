@@ -8,6 +8,43 @@ import wx.lib.scrolledpanel as sp
 import ioc_et
 import copy
 
+class AutoComboBox(wx.ComboBox):
+    def __init__(self, parent, choices=[], style=wx.CB_DROPDOWN):
+        wx.ComboBox.__init__(self, parent, style=style, choices=choices)
+        self.choices = choices
+        self.Bind(wx.EVT_TEXT, self.EvtText)
+        self.Bind(wx.EVT_CHAR_HOOK, self.EvtChar)
+        self.Bind(wx.EVT_COMBOBOX, self.EvtCombobox)
+        self.ignoreEvtText = False
+
+    def EvtCombobox(self, event):
+        self.ignoreEvtText = True
+        event.Skip()
+
+    def EvtChar(self, event):
+        if event.GetKeyCode() == wx.WXK_DELETE or event.GetKeyCode() == wx.WXK_BACK:
+            self.ignoreEvtText = True
+        event.Skip()
+
+    def EvtText(self, event):
+        print self.ignoreEvtText
+        if self.ignoreEvtText:
+            self.ignoreEvtText = False
+            return
+        currentText = event.GetString()
+        found = False
+        for choice in self.choices :
+            if choice.startswith(currentText):
+                self.ignoreEvtText = True
+                self.SetValue(choice)
+                self.SetInsertionPoint(len(currentText))
+                self.SetMark(len(currentText), len(choice))
+                found = True
+                break
+        if not found:
+            event.Skip()
+
+
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, title="About PyIOCe", style=wx.DEFAULT_DIALOG_STYLE)
@@ -101,7 +138,8 @@ class IndicatorDialog(wx.Dialog):
             search_box = wx.ComboBox(self, choices = ['foo'], size=(300,25))
             search_box.SetValue(search)
 
-            condition_box = wx.ComboBox(self, choices = condition_list)
+            # condition_box = wx.ComboBox(self, choices = condition_list)
+            condition_box = AutoComboBox(self, choices = condition_list)
             condition_box.SetValue(condition)
 
             content_box = wx.TextCtrl(self, size=(300,25))
@@ -330,7 +368,6 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.SetStringItem(index, 2, " " + ioc_version)
         self.SetStringItem(index, 3, ioc_modified)
         self.SetItemData(index, index)
-        self.SetItemTextColour(index, wx.RED)
 
         return index
 
@@ -687,6 +724,7 @@ class PyIOCe(wx.Frame):
             self.current_ioc_file = self.ioc_list.clone_ioc(self.current_ioc)
             self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
             new_ioc_index = self.ioc_list_panel.ioc_list_ctrl.add_ioc(self.ioc_list, self.current_ioc_file)
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
             self.ioc_list_panel.ioc_list_ctrl.Select(new_ioc_index, on=True)
             self.ioc_list_panel.ioc_list_ctrl.SetFocus()
 
@@ -702,22 +740,23 @@ class PyIOCe(wx.Frame):
         self.current_ioc_file = self.ioc_list.add_ioc(version = self.default_ioc_version)
         self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
         new_ioc_index = self.ioc_list_panel.ioc_list_ctrl.add_ioc(self.ioc_list, self.current_ioc_file)
+        self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
         self.ioc_list_panel.ioc_list_ctrl.Select(new_ioc_index, on=True)
         self.ioc_list_panel.ioc_list_ctrl.SetFocus()
 
     def on_save(self, event):
         if self.current_ioc != None:
             self.ioc_list.save_iocs(self.current_ioc_file)
-            ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
-            self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list)
-            self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
+            # ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
+            # self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
 
     def on_saveall(self, event):
         if self.current_ioc != None:
             self.ioc_list.save_iocs()
-            ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
-            self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list)
-            self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
+            # ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
+            # self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
     
     def on_ioc_select(self, event):
         ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetItemData(event.m_itemIndex)
