@@ -159,6 +159,7 @@ class PyIOCeEditMenu(wx.Menu):
         self.Append(wx.ID_PASTE, '&Paste')
         self.Append(wx.ID_REVERT, '&Revert')
         self.Append(wx.ID_REPLACE, 'Con&vert')
+        self.Append(wx.ID_DUPLICATE, 'C&lone')
 
 class PyIOCeHelpMenu(wx.Menu):
     def __init__(self):
@@ -375,6 +376,9 @@ class IOCMetadataPanel(wx.Panel):
   
         self.ioc_created_view = wx.StaticText(self)
         self.ioc_modified_view = wx.StaticText(self)
+
+        self.ioc_created_view.SetLabel("0001-01-01T00:00:00")
+        self.ioc_modified_view.SetLabel("0001-01-01T00:00:00")
   
         self.ioc_name_view = wx.TextCtrl(self)
         self.ioc_author_view = wx.TextCtrl(self)
@@ -452,7 +456,7 @@ class IOCIndicatorPage(wx.Panel):
 
 class IOCXMLPage(sp.ScrolledPanel):
     def __init__(self, parent):
-        sp.ScrolledPanel.__init__(self, parent, size=(800,800)) #FIXME
+        sp.ScrolledPanel.__init__(self, parent)
 
         self.SetBackgroundColour("#e8e8e8")
         self.SetupScrolling()
@@ -462,12 +466,15 @@ class IOCXMLPage(sp.ScrolledPanel):
         vbox.Add(self.ioc_xml_view, flag=wx.ALL, border=5)
         self.SetSizer(vbox)
 
+
     def update(self, current_ioc):
         if current_ioc != None:
             xml_view_string = et.tostring(current_ioc.working_xml, encoding="utf-8", xml_declaration=True, pretty_print = True)
         else:
             xml_view_string = "No IOC Selected"
         self.ioc_xml_view.SetLabel(xml_view_string)
+        self.SetupScrolling()
+
 
 class IOCNotebook(wx.Notebook):
     def __init__(self, parent):
@@ -513,6 +520,7 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_revert, id=wx.ID_REVERT)
         self.Bind(wx.EVT_MENU, self.on_convert, id=wx.ID_REPLACE)
         self.Bind(wx.EVT_MENU, self.on_about, id=wx.ID_ABOUT)
+        self.Bind(wx.EVT_MENU, self.on_clone, id=wx.ID_DUPLICATE)
 
         accel_table = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('n'), wx.ID_NEW),
@@ -523,7 +531,8 @@ class PyIOCe(wx.Frame):
             (wx.ACCEL_CTRL, ord('p'), wx.ID_PASTE),
             (wx.ACCEL_CTRL, ord('x'), wx.ID_CUT),
             (wx.ACCEL_CTRL, ord('r'), wx.ID_REVERT),
-            (wx.ACCEL_CTRL, ord('v'), wx.ID_REPLACE)
+            (wx.ACCEL_CTRL, ord('v'), wx.ID_REPLACE),
+            (wx.ACCEL_CTRL, ord('l'), wx.ID_DUPLICATE)
             ])
 
         self.SetAcceleratorTable(accel_table)
@@ -673,6 +682,14 @@ class PyIOCe(wx.Frame):
                 self.ioc_list_panel.ioc_list_ctrl.Select(0, on=True)
             self.ioc_list_panel.ioc_list_ctrl.SetFocus()            
     
+    def on_clone(self, event):
+        if self.current_ioc != None:
+            self.current_ioc_file = self.ioc_list.clone_ioc(self.current_ioc)
+            self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
+            new_ioc_index = self.ioc_list_panel.ioc_list_ctrl.add_ioc(self.ioc_list, self.current_ioc_file)
+            self.ioc_list_panel.ioc_list_ctrl.Select(new_ioc_index, on=True)
+            self.ioc_list_panel.ioc_list_ctrl.SetFocus()
+
     def on_new(self, event):
         if self.ioc_list.working_dir == None:
             selected_dir = self.select_dir()

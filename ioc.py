@@ -37,7 +37,7 @@ def generate_label(element):
             if element.get('negate') == "true":
                 negate = " NOT"
                 if element.get('preserve-case') == "true":
-                    color = "#400090"
+                    color = "#7300FF"
                 else:
                     color = wx.RED
 
@@ -108,6 +108,9 @@ class IOC():
     def get_created(self):
         return self.created.text
 
+    def set_created(self):
+        self.created.text = ioc_et.get_current_date()
+
     def get_metadata(field):
         pass
 
@@ -150,10 +153,20 @@ class IOCList():
                     ioc_file.close()
                     self.iocs[full_path].orig_xml = copy.copy(self.iocs[full_path].working_xml)
 
+    def clone_ioc(self,current_ioc):
+        new_ioc_xml = copy.copy(current_ioc.working_xml)
+        new_uuid = ioc_et.get_guid()
+        ioc_file = new_uuid + ".ioc"
+        full_path = os.path.join(self.working_dir, ioc_file)
+        
+        new_ioc_xml.attrib['id'] = new_uuid
+        self.iocs[full_path] = IOC(new_ioc_xml)
+        self.iocs[full_path].set_modified()
+        self.iocs[full_path].set_created()
+
+        return full_path
 
     def add_ioc(self, version):
-        ioc_file = None
-
         new_ioc_xml = ioc_et.make_IOC_root(version=version)
 
         ioc_file = new_ioc_xml.attrib['id'] + ".ioc"
