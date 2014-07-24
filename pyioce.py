@@ -9,40 +9,42 @@ import ioc_et
 import copy
 
 class AutoComboBox(wx.ComboBox):
-    def __init__(self, parent, choices=[], style=wx.CB_DROPDOWN):
-        wx.ComboBox.__init__(self, parent, style=style, choices=choices)
+    def __init__(self, parent, size=wx.DefaultSize, choices=[]):
+        wx.ComboBox.__init__(self, parent, size=size, choices=choices)
         self.choices = choices
-        self.Bind(wx.EVT_TEXT, self.EvtText)
-        self.Bind(wx.EVT_CHAR_HOOK, self.EvtChar)
-        self.Bind(wx.EVT_COMBOBOX, self.EvtCombobox)
-        self.ignoreEvtText = False
+        self.Bind(wx.EVT_TEXT, self.on_change)
+        self.Bind(wx.EVT_CHAR_HOOK, self.on_key)
+        self.autocomplete = False
 
-    def EvtCombobox(self, event):
-        self.ignoreEvtText = True
-        event.Skip()
-
-    def EvtChar(self, event):
+    def on_key(self, event):
         if event.GetKeyCode() == wx.WXK_DELETE or event.GetKeyCode() == wx.WXK_BACK:
-            self.ignoreEvtText = True
+            self.autocomplete = False
+        else:
+            self.autocomplete = True
         event.Skip()
 
-    def EvtText(self, event):
-        print self.ignoreEvtText
-        if self.ignoreEvtText:
-            self.ignoreEvtText = False
-            return
-        currentText = event.GetString()
-        found = False
-        for choice in self.choices :
-            if choice.startswith(currentText):
-                self.ignoreEvtText = True
-                self.SetValue(choice)
-                self.SetInsertionPoint(len(currentText))
-                self.SetMark(len(currentText), len(choice))
-                found = True
-                break
-        if not found:
-            event.Skip()
+    def on_change(self, event):
+        current_text = event.GetString()
+        if current_text != "":
+            if self.autocomplete:
+                replace_text = current_text
+                matches = []
+
+                for choice in self.choices:
+                    if choice.startswith(current_text):
+                        matches.append(choice)
+
+                if len(matches) > 0:
+                    replace_text = os.path.commonprefix(matches)
+                    print replace_text
+
+                if replace_text != current_text:
+                    self.autocomplete = False
+                    self.SetValue(replace_text)
+                    self.SetInsertionPoint(len(current_text))
+                    self.SetMark(len(current_text), len(replace_text))
+            else:
+                self.autocomplete = True
 
 
 class AboutDialog(wx.Dialog):
@@ -92,7 +94,8 @@ class IndicatorDialog(wx.Dialog):
         
         self.element = element
 
-        context_type_list = ['mir'] #FIXME read from files
+        search_list = ['foo'] #FIXME read from files
+        context_type_list = ['mir', 'grr'] #FIXME read from files
 
         if version == "1.0":
             condition_list = ['is', 'isnot', 'contains', 'containsnot']
@@ -132,13 +135,12 @@ class IndicatorDialog(wx.Dialog):
             hbox1 = wx.BoxSizer(wx.HORIZONTAL)
             fgs = wx.FlexGridSizer(2,2,0,0)
             
-            context_type_box = wx.ComboBox(self, choices = context_type_list)
+            context_type_box = AutoComboBox(self, choices = context_type_list)
             context_type_box.SetValue(context_type)
             
-            search_box = wx.ComboBox(self, choices = ['foo'], size=(300,25))
+            search_box = AutoComboBox(self, choices = search_list, size=(300,25))
             search_box.SetValue(search)
 
-            # condition_box = wx.ComboBox(self, choices = condition_list)
             condition_box = AutoComboBox(self, choices = condition_list)
             condition_box.SetValue(condition)
 
@@ -158,12 +160,18 @@ class IndicatorDialog(wx.Dialog):
                 hbox2.Add(gs, proportion = 1, flag = wx.EXPAND)
                 vbox.Add(hbox2, flag=wx.EXPAND | wx.ALIGN_CENTER)
 
+                if self.element.get('negate') == "true":
+                    negate_box.SetValue(True)
+
+                if self.element.get('preserve-case') == "true":
+                    preserve_case_box.SetValue(True)
+
         if version != "1.0":
             hbox3 = wx.BoxSizer(wx.HORIZONTAL)
             parameters_list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
             parameters_list_ctrl.InsertColumn(0, 'Name')
             parameters_list_ctrl.InsertColumn(1, 'Value', width = 300)
-            hbox3.Add(parameters_list_ctrl, proportion=1, flag=wx.EXPAND | wx.TOP| wx.LEFT | wx.RIGHT, border=15)
+            hbox3.Add(parameters_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.TOP| wx.LEFT | wx.RIGHT, border=15)
             vbox.Add(hbox3, flag=wx.EXPAND, proportion = 1)
 
         button_sizer = wx.StdDialogButtonSizer()
@@ -180,6 +188,46 @@ class IndicatorDialog(wx.Dialog):
 
         self.SetSizer(vbox)
         vbox.Fit(self)
+        
+        self.Bind(wx.EVT_TEXT, self.on_context_type_change, context_type_box)
+        self.Bind(wx.EVT_TEXT, self.on_search_change, search_box)
+        self.Bind(wx.EVT_TEXT, self.on_condition_change, condition_box)
+        self.Bind(wx.EVT_TEXT, self.on_content_change, content_box)
+
+        if version != "1.0":
+            self.Bind(wx.EVT_CHECKBOX, self.on_negate_change, negate_box)
+            self.Bind(wx.EVT_CHECKBOX, self.on_preserve_case_change, preserve_case_box)
+
+    def on_context_type_change(self, event):
+        print "TEST"
+        self.element.find('Context').set('type', event.GetString())
+        #FIXME read new search terms and update searchlist combobox
+
+    def on_search_change(self, event):
+        print "TEST"
+        self.element.find('Context').set('search', event.GetString())
+        #FIXME self.element.find('Content').set('type', content_type)
+        #FIXME update documenet type self.element.find('Context').set('document', document)
+
+    def on_condition_change(self, event):
+        print "TEST"
+        self.element.set('condition', event.GetString()) 
+
+    def on_content_change(self, event):
+        self.element.find('Content').text = event.GetString()
+
+    def on_negate_change(self, event):
+        if self.element.get('negate') == "true":
+            self.element.set('negate', 'false')
+        else:
+            self.element.set('negate', 'true')
+
+    def on_preserve_case_change(self, event):
+        if self.element.get('preserve-case') == "true":
+            self.element.set('preserve-case', 'false') 
+        else:
+            self.element.set('preserve-case', 'true')
+
 
 class PyIOCeFileMenu(wx.Menu):
     def __init__(self):
@@ -785,6 +833,8 @@ class PyIOCe(wx.Frame):
     def on_indicator_activated(self, event):
         if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
             self.open_indicator_dialog(self.current_indicator_element)
+            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
+            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
 
     def on_indicator_begin_drag(self, event):
@@ -956,9 +1006,7 @@ class PyIOCe(wx.Frame):
     def on_revert(self, event):
         if self.current_ioc != None:
             self.ioc_list.iocs[self.current_ioc_file] = IOC(self.current_ioc.orig_xml)
-            ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
-            self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list)
-            self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_convert(self, event):
         if self.current_ioc != None:
