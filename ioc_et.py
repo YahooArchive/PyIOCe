@@ -170,11 +170,11 @@ def make_Indicator_node(operator, id = None):
     Indicator_node.attrib['operator'] = operator.upper()
     return Indicator_node
 
-def make_IndicatorItem_node(condition="is", 
-                            document="foo", 
-                            search="foo", 
-                            content_type="string", 
-                            content="foo", 
+def make_IndicatorItem_node(condition="", 
+                            document="", 
+                            search="", 
+                            content_type="", 
+                            content="", 
                             preserve_case = False,
                             negate = False,
                             context_type = 'mir', 
