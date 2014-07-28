@@ -19,6 +19,10 @@
 # Provides support for ioc_api.
 #
 
+#
+# Modifications to file for Yahoo! by Sean Gillespie
+#
+
 import uuid
 import datetime
 
@@ -170,11 +174,11 @@ def make_Indicator_node(operator, id = None):
     Indicator_node.attrib['operator'] = operator.upper()
     return Indicator_node
 
-def make_IndicatorItem_node(condition="", 
-                            document="", 
-                            search="", 
-                            content_type="", 
-                            content="", 
+def make_IndicatorItem_node(condition="is", 
+                            document="Undefined", 
+                            search="SearchTerm", 
+                            content_type="Undefined", 
+                            content="Undefined", 
                             preserve_case = False,
                             negate = False,
                             context_type = 'mir', 

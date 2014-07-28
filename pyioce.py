@@ -1,5 +1,20 @@
 #!/usr/bin/python
 
+# Copyright 2014 Yahoo! Inc.  
+# Licensed under the Apache 2.0 license.  Developed for Yahoo! by Sean Gillespie. 
+#
+# Yahoo! licenses this file to you under the Apache License, Version
+# 2.0 (the "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at:
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.  See the License for the specific language governing
+# permissions and limitations under the License.
+
 import wx
 from wx.lib.mixins.listctrl import ColumnSorterMixin
 from ioc import *
@@ -110,17 +125,18 @@ class IndicatorDialog(wx.Dialog):
             vbox = wx.BoxSizer(wx.VERTICAL)
             hbox1 = wx.BoxSizer(wx.HORIZONTAL)
             gs = wx.GridSizer(1,2,0,0)
-            or_toggle = wx.RadioButton( self, -1, "OR" )
+            self.or_toggle = wx.RadioButton( self, -1, "OR" )
             and_toggle = wx.RadioButton( self, -1, "AND" )
 
             if self.element.get('operator') == "OR":
-                or_toggle.SetValue(1)
+                self.or_toggle.SetValue(1)
             else:
                 and_toggle.SetValue(1)
 
-            gs.AddMany([(or_toggle,0,wx.ALIGN_CENTER), (and_toggle,1,wx.ALIGN_CENTER)])
+            gs.AddMany([(self.or_toggle,0,wx.ALIGN_CENTER), (and_toggle,1,wx.ALIGN_CENTER)])
             hbox1.Add(gs, proportion=1, flag=wx.TOP, border=15)
             vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+            self.Bind(wx.EVT_RADIOBUTTON, self.on_operator_change)
 
         elif self.element.tag == "IndicatorItem":
 
@@ -247,6 +263,13 @@ class IndicatorDialog(wx.Dialog):
             self.element.set('preserve-case', 'false') 
         else:
             self.element.set('preserve-case', 'true')
+
+    def on_operator_change(self, event):
+        radio_selected = event.GetEventObject()
+        if radio_selected == self.or_toggle:
+            self.element.set('operator', "OR")
+        else:
+            self.element.set('operator', "AND")       
 
 class PyIOCeFileMenu(wx.Menu):
     def __init__(self):
@@ -732,21 +755,18 @@ class PyIOCe(wx.Frame):
 
         return selected_dir
 
-    def open_indicator_dialog(self, element):
-        orig_element = copy.copy(element)
+    def open_indicator_dialog(self):
+        new_element = copy.deepcopy(self.current_indicator_element)
 
-        indicator_dialog = IndicatorDialog(self, element=element, version=self.current_ioc.version, indicator_terms = self.indicator_terms)
+        indicator_dialog = IndicatorDialog(self, element=new_element, version=self.current_ioc.version, indicator_terms = self.indicator_terms)
         indicator_dialog.CenterOnScreen()
     
-        if indicator_dialog.ShowModal() != wx.ID_OK:
-            element = copy.copy(orig_element)
-            status = False
-        else:
-            status = True
+        if indicator_dialog.ShowModal() == wx.ID_OK:
+            parent_element = self.current_indicator_element.getparent()
+            parent_element.insert(parent_element.index(self.current_indicator_element),new_element)
+            parent_element.remove(self.current_indicator_element)
 
         indicator_dialog.Destroy()
-
-        return status
 
     def open_convert_dialog(self, element):
         convert_dialog = ConvertDialog(self, current_ioc = self.current_ioc)
@@ -854,10 +874,12 @@ class PyIOCe(wx.Frame):
 
     def on_indicator_activated(self, event):
         if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
-            self.open_indicator_dialog(self.current_indicator_element)
+            self.open_indicator_dialog()
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
+ 
 
     def on_indicator_begin_drag(self, event):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
@@ -984,19 +1006,16 @@ class PyIOCe(wx.Frame):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
         new_indicatoritem_element = ioc_et.make_IndicatorItem_node(context_type = self.default_context_type)
         
-        success = self.open_indicator_dialog(new_indicatoritem_element)
+        (label, color) = generate_label(new_indicatoritem_element)
 
-        if success:
-            (label, color) = generate_label(new_indicatoritem_element)
-
-            if self.current_indicator_element.tag == "Indicator":
-                self.current_indicator_element.append(new_indicatoritem_element)
-                new_indicatoritem_id = ioc_tree_ctrl.AppendItem(self.current_indicator_id, label, data=wx.TreeItemData(new_indicatoritem_element))
-            elif self.current_indicator_element.tag == "IndicatorItem":
-                self.current_indicator_element.getparent().append(new_indicatoritem_element)
-                new_indicatoritem_id = ioc_tree_ctrl.AppendItem(ioc_tree_ctrl.GetItemParent(self.current_indicator_id), label, data=wx.TreeItemData(new_indicatoritem_element))
-            ioc_tree_ctrl.SetItemTextColour(new_indicatoritem_id, color)
-            ioc_tree_ctrl.Expand(self.current_indicator_id)
+        if self.current_indicator_element.tag == "Indicator":
+            self.current_indicator_element.append(new_indicatoritem_element)
+            new_indicatoritem_id = ioc_tree_ctrl.AppendItem(self.current_indicator_id, label, data=wx.TreeItemData(new_indicatoritem_element))
+        elif self.current_indicator_element.tag == "IndicatorItem":
+            self.current_indicator_element.getparent().append(new_indicatoritem_element)
+            new_indicatoritem_id = ioc_tree_ctrl.AppendItem(ioc_tree_ctrl.GetItemParent(self.current_indicator_id), label, data=wx.TreeItemData(new_indicatoritem_element))
+        ioc_tree_ctrl.SetItemTextColour(new_indicatoritem_id, color)
+        ioc_tree_ctrl.Expand(self.current_indicator_id)
         ioc_tree_ctrl.SetFocus()
 
     def on_delete(self, event):
