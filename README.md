@@ -1,7 +1,14 @@
 Python IOC Editor
 
+Copyright 2014 Yahoo
+Authored by Sean Gillespie
+Licensed under the Apache 2.0 license.
+Code and contents listed below are attributed with the copyright holder and
+license as follows:
 
-Copyright Sean Gillespie/Yahoo
+Copyright: Yahoo
+Author: Sean Gillespie
+License: Apache 2.0
 --------------------------------------------------------
 pyioce.py  
 ioc.py
@@ -16,7 +23,9 @@ images/not.png
 images/or.png
 
 
-Copyright William Gibb/Mandiant Apache License
+Copyright: Mandiant
+Author: William Gibb
+License: Apache 2.0
 --------------------------------------------------------
 ioc_et.py - Modifications by Sean Gillespie/Yahoo
 
