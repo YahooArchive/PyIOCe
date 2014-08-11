@@ -215,8 +215,11 @@ class IOCList():
 
                     ioc_file = open(full_path, 'r')
 
-                    ioc_xml = et.fromstring(ioc_file.read())
+                    try: 
+                        ioc_xml = et.fromstring(ioc_file.read())
 
-                    clean_ioc_xml = strip_namespace(ioc_xml)
+                        clean_ioc_xml = strip_namespace(ioc_xml)
 
-                    self.iocs[full_path] = IOC(clean_ioc_xml)
+                        self.iocs[full_path] = IOC(clean_ioc_xml)
+                    except:
+                        pass #FIXME Logging/Alerts for failed files
