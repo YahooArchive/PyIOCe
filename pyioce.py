@@ -24,6 +24,67 @@ import ioc_et
 import copy
 import json
 
+class LinkDialog(wx.Dialog):
+    def __init__(self, parent, link_data, version):
+        wx.Dialog.__init__(self, parent, -1, title="Edit Link", style=wx.DEFAULT_DIALOG_STYLE)
+
+        rel_list = ["link", "report", "related", "category", "capability", "dependency", "caveat", "family"]
+
+        self.link_rel, self.link_value, self.link_href = link_data
+
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        self.rel_box = AutoComboBox(self, choices = rel_list)
+        self.rel_box.SetValue(self.link_rel)
+
+        self.value_box = wx.TextCtrl(self)
+        self.value_box.SetValue(self.link_value)
+
+        if version == "1.0":
+            fgs = wx.FlexGridSizer(1,2,0,0)
+            fgs.AddMany([(self.rel_box, 0, wx.EXPAND), (self.value_box,0)])
+        else:
+            fgs = wx.FlexGridSizer(1,3,0,0)
+            self.href_box = wx.TextCtrl(self)
+            self.href_box.SetValue(self.link_href)
+
+            fgs.AddMany([(self.rel_box, 0, wx.EXPAND), (self.value_box,0), (self.href_box, 0)])
+            self.Bind(wx.EVT_TEXT, self.on_href_change, self.href_box)
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        self.Bind(wx.EVT_TEXT, self.on_value_change, self.value_box)
+        self.Bind(wx.EVT_TEXT, self.on_rel_change, self.rel_box)
+
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    def on_rel_change(self, event):
+        self.link_rel = self.rel_box.GetValue()
+        print self.link_rel
+
+    def on_value_change(self, event):
+        self.link_value = self.value_box.GetValue()
+
+    def on_href_change(self, event):
+        self.link_href = self.href_box.GetValue()
+
 
 class AboutDialog(wx.Dialog):
     def __init__(self, parent):
@@ -461,6 +522,87 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
         return index
 
+class LinkListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.wx.BORDER_SUNKEN)
+        ColumnSorterMixin.__init__(self, 3)
+
+        self.itemDataMap = {}
+        
+    def GetListCtrl(self):
+        return self
+
+    def update(self,links):
+
+        self.DeleteAllItems()
+        self.itemDataMap = {}
+
+        for link in links.findall('link'):
+            index = len(self.itemDataMap)
+            
+            link_rel = link.get('rel')
+            link_value = link.text
+
+            link_href = link.get('href')
+
+            if link_href == None:
+                link_href = ""            
+
+            if link_rel == None:
+                link_rel = ""
+
+            self.itemDataMap[index] = (link_rel, link_value, link_href)
+
+            self.InsertStringItem(index, " " + link_rel)
+            self.SetStringItem(index, 1, " " + link_value)
+            self.SetStringItem(index, 2, " " + link_href)
+            self.SetItemData(index, index)
+
+    def add_link(self):
+        index = len(self.itemDataMap)
+
+        link_rel = "*NEW*"
+        link_value = ""
+        link_href = ""
+       
+        self.itemDataMap[index] = (link_rel, link_value, link_href)
+
+        self.InsertStringItem(index, " " + link_rel)
+        self.SetStringItem(index, 1, " " + link_value)
+        self.SetStringItem(index, 2, " " + link_href)
+        self.SetItemData(index, index)
+
+    def del_link(self, link):
+        self.itemDataMap.pop(self.GetItemData(link))
+        self.DeleteItem(link)
+
+    def reload(self, links):
+        for link in links.findall('link'):
+            links.remove(link)
+
+        for index in range(0,self.GetItemCount()):
+            (link_rel, link_value, link_href) = self.itemDataMap[self.GetItemData(index)]
+
+            if link_href == "":
+                link_href = None
+            links.append(ioc_et.make_link_node(link_rel, link_value, link_href))
+        self.update(links)
+
+    def edit_link(self, link, version):
+
+        index = self.GetItemData(link)
+
+        link_data = self.itemDataMap[index]
+
+        link_dialog = LinkDialog(self, link_data=link_data, version=version)
+        link_dialog.CenterOnScreen()
+    
+        if link_dialog.ShowModal() == wx.ID_OK:
+            self.itemDataMap[index] = (link_dialog.link_rel, link_dialog.link_value, link_dialog.link_href)
+
+        link_dialog.Destroy()
+
+
 class IOCListPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self,parent)
@@ -522,10 +664,10 @@ class IOCMetadataPanel(wx.Panel):
        
         hbox4 = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.ioc_links_view = wx.ListCtrl(self, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+        self.ioc_links_view = LinkListCtrl(self)
         self.ioc_links_view.InsertColumn(0, 'Key')
-        self.ioc_links_view.InsertColumn(1, 'Value')
-        self.ioc_links_view.InsertColumn(2, 'HREF', width=225)
+        self.ioc_links_view.InsertColumn(1, 'Value', width=150)
+        self.ioc_links_view.InsertColumn(2, 'HREF', width=250)
         hbox4.Add(self.ioc_links_view, proportion=1, flag=wx.RIGHT|wx.EXPAND, border=5)
         
 
@@ -541,25 +683,15 @@ class IOCMetadataPanel(wx.Panel):
         self.SetSizer(vbox)
 
     def update(self, current_ioc):
-        if current_ioc != None:
-            self.ioc_uuid_view.SetLabelText(current_ioc.get_uuid())
-            self.ioc_created_view.SetLabelText(current_ioc.get_created())
-            self.ioc_modified_view.SetLabelText(current_ioc.get_modified())
+        self.ioc_uuid_view.SetLabelText(current_ioc.get_uuid())
+        self.ioc_created_view.SetLabelText(current_ioc.get_created())
+        self.ioc_modified_view.SetLabelText(current_ioc.get_modified())
 
-            self.ioc_author_view.ChangeValue(current_ioc.get_author())
-            self.ioc_name_view.ChangeValue(current_ioc.get_name())
-            self.ioc_desc_view.ChangeValue(current_ioc.get_desc())
+        self.ioc_author_view.ChangeValue(current_ioc.get_author())
+        self.ioc_name_view.ChangeValue(current_ioc.get_name())
+        self.ioc_desc_view.ChangeValue(current_ioc.get_desc())
 
-             # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN) #FIXME
-        else:
-            self.ioc_uuid_view.SetLabelText("")
-            self.ioc_created_view.SetLabelText("")
-            self.ioc_modified_view.SetLabelText("")
-
-            self.ioc_author_view.ChangeValue("")
-            self.ioc_name_view.ChangeValue("")
-            self.ioc_desc_view.ChangeValue("")
-            # self.ioc_links_view = wx.ListCtrl(ioc_metadata_panel, style=wx.LC_REPORT|wx.BORDER_SUNKEN) #FIXME
+        self.ioc_links_view.update(current_ioc.links)
 
 class IOCIndicatorPage(wx.Panel):
     def __init__(self, parent):
@@ -712,7 +844,7 @@ class PyIOCe(wx.Frame):
         self.update_status_bar()
 
     def init_panes(self):
-        vsplitter = wx.SplitterWindow(self, size=(500,500), style = wx.SP_LIVE_UPDATE | wx.SP_3D)
+        vsplitter = wx.SplitterWindow(self, size=(500,550), style = wx.SP_LIVE_UPDATE | wx.SP_3D)
         hsplitter = wx.SplitterWindow(vsplitter, style = wx.SP_LIVE_UPDATE | wx.SP_3D)
 
         self.ioc_list_panel = IOCListPanel(vsplitter)
@@ -736,6 +868,10 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_TEXT, self.on_name_input, self.ioc_metadata_panel.ioc_name_view)
         self.Bind(wx.EVT_TEXT, self.on_desc_input, self.ioc_metadata_panel.ioc_desc_view)
 
+        self.Bind(wx.EVT_BUTTON, self.on_link_del, self.ioc_metadata_panel.ioc_dellink_button)
+        self.Bind(wx.EVT_BUTTON, self.on_link_add, self.ioc_metadata_panel.ioc_addlink_button)
+
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_link_activated, self.ioc_metadata_panel.ioc_links_view)
 
         vsplitter.SplitVertically(self.ioc_list_panel, hsplitter)
         hsplitter.SplitHorizontally(self.ioc_metadata_panel, self.ioc_notebook_panel)
@@ -925,6 +1061,7 @@ class PyIOCe(wx.Frame):
         ioc_tree_ctrl.SelectItem(self.current_indicator_id)
         self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
+
     def on_author_input(self, event):
         if self.current_ioc != None:
             author = self.ioc_metadata_panel.ioc_author_view.GetValue()
@@ -943,6 +1080,30 @@ class PyIOCe(wx.Frame):
         if self.current_ioc != None:
             desc = self.ioc_metadata_panel.ioc_desc_view.GetValue()
             self.current_ioc.set_desc(desc)
+            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
+
+    def on_link_add(self, event):
+        if self.current_ioc != None:
+            self.ioc_metadata_panel.ioc_links_view.add_link()
+            self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
+            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
+
+    def on_link_del(self, event):
+        if self.current_ioc != None:
+            link = self.ioc_metadata_panel.ioc_links_view.GetFirstSelected()
+            if link >= 0:
+                self.ioc_metadata_panel.ioc_links_view.del_link(link)
+                self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
+                self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+                self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
+
+    def on_link_activated(self, event):
+        if self.current_ioc != None:
+            link = self.ioc_metadata_panel.ioc_links_view.GetFirstSelected()
+            self.ioc_metadata_panel.ioc_links_view.edit_link(link, self.current_ioc.version)
+            self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
             self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
