@@ -78,8 +78,6 @@ class IOC():
 
         self.attributes = self.working_xml.attrib
 
-        print 
-
         if self.working_xml.nsmap[None] == "http://schemas.mandiant.com/2010/ioc":
             self.version = "1.0"
             self.name = self.working_xml.find('short_description')
@@ -98,6 +96,7 @@ class IOC():
             self.created = self.working_xml.find('metadata/authored_date')
             self.links = self.working_xml.find('metadata/links')
             self.criteria = self.working_xml.find('criteria')
+            self.parameters = self.working_xml.find('parameters')
 
     def get_uuid(self):
         return self.attributes['id']

@@ -24,6 +24,56 @@ import ioc_et
 import copy
 import json
 
+class ParamDialog(wx.Dialog):
+    def __init__(self, parent, param):
+        wx.Dialog.__init__(self, parent, -1, title="Edit Parameter", style=wx.DEFAULT_DIALOG_STYLE)
+
+        self.param = param
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(1,2,0,0)
+  
+        param_name = self.param.get('name')
+        param_value = self.param.find('value').text
+
+        self.name_box = wx.TextCtrl(self)
+        self.name_box.SetValue(param_name)
+
+        self.value_box = wx.TextCtrl(self)
+        self.value_box.SetValue(param_value)
+
+        fgs.AddMany([(self.name_box, 0), (self.value_box,0, wx.EXPAND)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        self.Bind(wx.EVT_TEXT, self.on_name_change, self.name_box)
+        self.Bind(wx.EVT_TEXT, self.on_value_change, self.value_box)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    def on_name_change(self, event):
+        self.param.set('name', self.name_box.GetValue())
+
+    def on_value_change(self, event):
+        self.param.find('value').text = self.value_box.GetValue()
+
+
 class LinkDialog(wx.Dialog):
     def __init__(self, parent, link_data, version):
         wx.Dialog.__init__(self, parent, -1, title="Edit Link", style=wx.DEFAULT_DIALOG_STYLE)
@@ -56,9 +106,10 @@ class LinkDialog(wx.Dialog):
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
         vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
 
-        self.Bind(wx.EVT_TEXT, self.on_value_change, self.value_box)
+        
         self.Bind(wx.EVT_TEXT, self.on_rel_change, self.rel_box)
-
+        self.Bind(wx.EVT_COMBOBOX, self.on_rel_change, self.rel_box)
+        self.Bind(wx.EVT_TEXT, self.on_value_change, self.value_box)
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -77,7 +128,6 @@ class LinkDialog(wx.Dialog):
 
     def on_rel_change(self, event):
         self.link_rel = self.rel_box.GetValue()
-        print self.link_rel
 
     def on_value_change(self, event):
         self.link_value = self.value_box.GetValue()
@@ -105,6 +155,7 @@ class AboutDialog(wx.Dialog):
         self.SetSizer(vbox)
         vbox.Fit(self)
 
+
 class ConvertDialog(wx.Dialog):
     def __init__(self, parent, current_ioc):
         wx.Dialog.__init__(self, parent, -1, title="Convert IOC", style=wx.DEFAULT_DIALOG_STYLE)
@@ -126,6 +177,7 @@ class ConvertDialog(wx.Dialog):
 
         self.SetSizer(vbox)
         vbox.Fit(self)
+
 
 class AutoComboBox(wx.ComboBox):
     def __init__(self, parent, size=wx.DefaultSize, choices=[]):
@@ -173,10 +225,13 @@ class AutoComboBox(wx.ComboBox):
                 self.autocomplete = True
         event.Skip()
 
+
 class IndicatorDialog(wx.Dialog):
-    def __init__(self, parent, element, version, indicator_terms):
+    def __init__(self, parent, element, current_ioc, indicator_terms):
         wx.Dialog.__init__(self, parent, -1, title="Edit Indicator", style=wx.DEFAULT_DIALOG_STYLE)
         
+        self.current_ioc = current_ioc
+
         self.element = element
         self.indicator_terms = indicator_terms
 
@@ -212,9 +267,9 @@ class IndicatorDialog(wx.Dialog):
             search_list = sorted(self.indicator_terms[context_type].keys())
             context_type_list = indicator_terms.keys()
 
-            if version == "1.0":
+            if self.current_ioc.version == "1.0":
                 condition_list = ['is', 'isnot', 'contains', 'containsnot']
-            elif version == "1.1":
+            elif self.current_ioc.version == "1.1":
                 condition_list = ['is', 'contains', 'matches', 'starts-with', 'ends-with', 'greater-than', 'less-than']
 
             self.SetTitle("IndicatorItem")
@@ -238,7 +293,7 @@ class IndicatorDialog(wx.Dialog):
             hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP, border=15)
             vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
 
-            if version != "1.0":
+            if self.current_ioc.version != "1.0":
                 hbox2 = wx.BoxSizer(wx.HORIZONTAL)
                 gs = wx.GridSizer(1,2,0,0)
                 negate_box = wx.CheckBox(self, -1, "Negate")
@@ -263,17 +318,34 @@ class IndicatorDialog(wx.Dialog):
             self.Bind(wx.EVT_COMBOBOX, self.on_content_change, self.content_box)
 
 
-            if version != "1.0":
+            if self.current_ioc.version != "1.0":
                 self.Bind(wx.EVT_CHECKBOX, self.on_negate_change, negate_box)
                 self.Bind(wx.EVT_CHECKBOX, self.on_preserve_case_change, preserve_case_box)
 
-        if version != "1.0":
+        #Insert Parameters list
+
+        if self.current_ioc.version != "1.0":
+
+
             hbox3 = wx.BoxSizer(wx.HORIZONTAL)
-            parameters_list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
-            parameters_list_ctrl.InsertColumn(0, 'Name')
-            parameters_list_ctrl.InsertColumn(1, 'Value', width = 300)
-            hbox3.Add(parameters_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.TOP| wx.LEFT | wx.RIGHT, border=15)
-            vbox.Add(hbox3, flag=wx.EXPAND, proportion = 1)
+
+            self.parameters_list_ctrl = ParameterListCtrl(self, indicator_uuid)
+            hbox3.Add(self.parameters_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT , border=5)
+
+
+            hbox3_vbox = wx.BoxSizer(wx.VERTICAL)
+            self.indicator_addparam_button = wx.Button(self, label='+', size=(25, 25))
+            hbox3_vbox.Add(self.indicator_addparam_button)
+            self.indicator_delparam_button = wx.Button(self, label='-', size=(25, 25))
+            hbox3_vbox.Add(self.indicator_delparam_button)
+            hbox3.Add(hbox3_vbox)
+            vbox.Add(hbox3, proportion = 1, flag=wx.EXPAND | wx.TOP| wx.LEFT | wx.RIGHT , border=15)
+
+            self.Bind(wx.EVT_BUTTON, self.on_param_del, self.indicator_delparam_button)
+            self.Bind(wx.EVT_BUTTON, self.on_param_add, self.indicator_addparam_button)
+
+            self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_param_activated, self.parameters_list_ctrl)
+
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -330,7 +402,20 @@ class IndicatorDialog(wx.Dialog):
         if radio_selected == self.or_toggle:
             self.element.set('operator', "OR")
         else:
-            self.element.set('operator', "AND")       
+            self.element.set('operator', "AND")
+
+    def on_param_add(self, event):
+        self.parameters_list_ctrl.add_param()
+
+    def on_param_del(self, event):
+        param = self.parameters_list_ctrl.GetFirstSelected()
+        if param >= 0:
+            self.parameters_list_ctrl.del_param(param)
+
+    def on_param_activated(self, event):
+        param = self.parameters_list_ctrl.GetFirstSelected()
+        self.parameters_list_ctrl.edit_param(param)
+    
 
 class PyIOCeFileMenu(wx.Menu):
     def __init__(self):
@@ -339,6 +424,7 @@ class PyIOCeFileMenu(wx.Menu):
         self.Append(wx.ID_OPEN, '&Open')
         self.Append(wx.ID_SAVE, '&Save')
         self.Append(wx.ID_SAVEAS, '&Save All')
+
 
 class PyIOCeEditMenu(wx.Menu):
     def __init__(self):
@@ -350,10 +436,12 @@ class PyIOCeEditMenu(wx.Menu):
         self.Append(wx.ID_REPLACE, 'Con&vert')
         self.Append(wx.ID_DUPLICATE, 'C&lone')
 
+
 class PyIOCeHelpMenu(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
         self.Append(wx.ID_ABOUT, "&About PyIOCe")
+
 
 class PyIOCeMenuBar(wx.MenuBar):
     def __init__(self):
@@ -362,6 +450,7 @@ class PyIOCeMenuBar(wx.MenuBar):
         self.Append(PyIOCeFileMenu(), '&File')
         self.Append(PyIOCeEditMenu(), '&Edit')
         self.Append(PyIOCeHelpMenu(), '&Help')
+
 
 class IOCTreeCtrl(wx.TreeCtrl):
     def __init__(self, parent):
@@ -458,6 +547,7 @@ class IOCTreeCtrl(wx.TreeCtrl):
         else:
             self.clear_tree()
 
+
 class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
@@ -522,9 +612,10 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
         return index
 
+
 class LinkListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def __init__(self, parent):
-        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.wx.BORDER_SUNKEN)
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
         ColumnSorterMixin.__init__(self, 3)
 
         self.itemDataMap = {}
@@ -603,6 +694,90 @@ class LinkListCtrl(wx.ListCtrl, ColumnSorterMixin):
         link_dialog.Destroy()
 
 
+class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent, indicator_id):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+        ColumnSorterMixin.__init__(self, 3)
+
+        self.itemDataMap = {}
+        self.indicator_id = indicator_id
+        self.parameters = parent.current_ioc.parameters
+
+        self.InsertColumn(0, 'Name')
+        self.InsertColumn(1, 'Value', width = 300)
+
+        for param in self.parameters.findall('param'):
+            if param.get('ref-id') == self.indicator_id: #FIXME
+                index = len(self.itemDataMap)
+                
+                param_name = param.get('name')
+                param_id = param.get('id')
+                param_value = param.find('value').text
+
+                self.itemDataMap[index] = (param_id, param_name, param_value)
+
+                self.InsertStringItem(index, " " + param_name)
+                self.SetStringItem(index, 1, " " + param_value)
+                self.SetItemData(index, index)
+        
+    def GetListCtrl(self):
+        return self
+
+    def add_param(self):
+        index = len(self.itemDataMap)
+    
+        param_name = "*NEW*"
+        param_value = ""
+        param_ref = self.indicator_id
+        
+        new_param = ioc_et.make_param_node(id=param_ref, content=param_value, name=param_name)
+        
+        self.itemDataMap[index] = (new_param.get('id'), param_name, param_value)
+
+        self.InsertStringItem(index, " " + param_name)
+        self.SetStringItem(index, 1, " " + param_value)
+        self.SetItemData(index, index)
+        self.parameters.append(new_param)
+
+    def del_param(self, param):
+        index = self.GetItemData(param)
+        param_id = self.itemDataMap[index][0]
+        self.itemDataMap.pop(self.GetItemData(param))
+        self.DeleteItem(param)
+
+        for element in self.parameters.findall('param'):
+            if element.get('id') == param_id: #FIXME
+                self.parameters.remove(element)
+
+
+    def edit_param(self, param):
+        index = self.GetItemData(param)
+        param_id, param_name, param_value = self.itemDataMap[index]
+
+        for element in self.parameters.findall('param'):
+            if element.get('id') == param_id:
+
+                new_element = copy.deepcopy(element)
+
+                param_dailog = ParamDialog(self, param=new_element)
+                param_dailog.CenterOnScreen()x
+            
+                if param_dailog.ShowModal() == wx.ID_OK:
+                    parent_element = element.getparent()
+                    parent_element.insert(parent_element.index(element),new_element)
+                    parent_element.remove(element)
+                    param_name = new_element.get('name')
+                    param_value = new_element.find('value').text
+
+                    self.SetStringItem(param, 0, " " + param_name)
+                    self.SetStringItem(param, 1, " " + param_value)
+                    self.itemDataMap[index] = (param_id, param_name, param_value)
+
+                param_dailog.Destroy()
+
+
+
+
 class IOCListPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self,parent)
@@ -617,6 +792,7 @@ class IOCListPanel(wx.Panel):
 
         hbox.Add(self.ioc_list_ctrl, 1, flag = wx.EXPAND)
         self.SetSizer(hbox)
+
 
 class IOCMetadataPanel(wx.Panel):
     def __init__(self, parent):
@@ -664,11 +840,11 @@ class IOCMetadataPanel(wx.Panel):
        
         hbox4 = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.ioc_links_view = LinkListCtrl(self)
-        self.ioc_links_view.InsertColumn(0, 'Key')
-        self.ioc_links_view.InsertColumn(1, 'Value', width=150)
-        self.ioc_links_view.InsertColumn(2, 'HREF', width=250)
-        hbox4.Add(self.ioc_links_view, proportion=1, flag=wx.RIGHT|wx.EXPAND, border=5)
+        self.links_list_ctrl = LinkListCtrl(self)
+        self.links_list_ctrl.InsertColumn(0, 'Key')
+        self.links_list_ctrl.InsertColumn(1, 'Value', width=150)
+        self.links_list_ctrl.InsertColumn(2, 'HREF', width=250)
+        hbox4.Add(self.links_list_ctrl, proportion=1, flag=wx.RIGHT|wx.EXPAND, border=5)
         
 
         hbox4_vbox = wx.BoxSizer(wx.VERTICAL)
@@ -691,7 +867,8 @@ class IOCMetadataPanel(wx.Panel):
         self.ioc_name_view.ChangeValue(current_ioc.get_name())
         self.ioc_desc_view.ChangeValue(current_ioc.get_desc())
 
-        self.ioc_links_view.update(current_ioc.links)
+        self.links_list_ctrl.update(current_ioc.links)
+
 
 class IOCIndicatorPage(wx.Panel):
     def __init__(self, parent):
@@ -712,6 +889,7 @@ class IOCIndicatorPage(wx.Panel):
         self.ioc_tree_ctrl.SetBackgroundColour("#ccffcc")
         vbox.Add(self.ioc_tree_ctrl, proportion=1, flag=wx.EXPAND)
         self.SetSizer(vbox)
+
 
 class IOCXMLPage(sp.ScrolledPanel):
     def __init__(self, parent):
@@ -734,6 +912,7 @@ class IOCXMLPage(sp.ScrolledPanel):
         self.ioc_xml_view.SetLabel(xml_view_string)
         self.SetupScrolling()
 
+
 class IOCNotebook(wx.Notebook):
     def __init__(self, parent):
         wx.Notebook.__init__(self,parent)
@@ -743,6 +922,7 @@ class IOCNotebook(wx.Notebook):
 
         self.AddPage(self.ioc_indicator_page, "IOC")
         self.AddPage(self.ioc_xml_page, "XML")
+
         
 class PyIOCe(wx.Frame):
 
@@ -871,7 +1051,7 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.on_link_del, self.ioc_metadata_panel.ioc_dellink_button)
         self.Bind(wx.EVT_BUTTON, self.on_link_add, self.ioc_metadata_panel.ioc_addlink_button)
 
-        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_link_activated, self.ioc_metadata_panel.ioc_links_view)
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_link_activated, self.ioc_metadata_panel.links_list_ctrl)
 
         vsplitter.SplitVertically(self.ioc_list_panel, hsplitter)
         hsplitter.SplitHorizontally(self.ioc_metadata_panel, self.ioc_notebook_panel)
@@ -894,7 +1074,7 @@ class PyIOCe(wx.Frame):
     def open_indicator_dialog(self):
         new_element = copy.deepcopy(self.current_indicator_element)
 
-        indicator_dialog = IndicatorDialog(self, element=new_element, version=self.current_ioc.version, indicator_terms = self.indicator_terms)
+        indicator_dialog = IndicatorDialog(self, element=new_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms)
         indicator_dialog.CenterOnScreen()
     
         if indicator_dialog.ShowModal() == wx.ID_OK:
@@ -1085,25 +1265,25 @@ class PyIOCe(wx.Frame):
 
     def on_link_add(self, event):
         if self.current_ioc != None:
-            self.ioc_metadata_panel.ioc_links_view.add_link()
-            self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
+            self.ioc_metadata_panel.links_list_ctrl.add_link()
+            self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
             self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_link_del(self, event):
         if self.current_ioc != None:
-            link = self.ioc_metadata_panel.ioc_links_view.GetFirstSelected()
+            link = self.ioc_metadata_panel.links_list_ctrl.GetFirstSelected()
             if link >= 0:
-                self.ioc_metadata_panel.ioc_links_view.del_link(link)
-                self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
+                self.ioc_metadata_panel.links_list_ctrl.del_link(link)
+                self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
                 self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
                 self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_link_activated(self, event):
         if self.current_ioc != None:
-            link = self.ioc_metadata_panel.ioc_links_view.GetFirstSelected()
-            self.ioc_metadata_panel.ioc_links_view.edit_link(link, self.current_ioc.version)
-            self.ioc_metadata_panel.ioc_links_view.reload(self.current_ioc.links)
+            link = self.ioc_metadata_panel.links_list_ctrl.GetFirstSelected()
+            self.ioc_metadata_panel.links_list_ctrl.edit_link(link, self.current_ioc.version)
+            self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
             self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
