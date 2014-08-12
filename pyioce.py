@@ -242,6 +242,7 @@ class IndicatorDialog(wx.Dialog):
 
         self.element = element
         self.indicator_terms = indicator_terms
+        indicator_uuid = self.element.attrib['id']
 
         if self.element.tag == "Indicator":
             self.SetTitle("Indicator")
@@ -264,7 +265,6 @@ class IndicatorDialog(wx.Dialog):
 
         elif self.element.tag == "IndicatorItem":
 
-            indicator_uuid = self.element.attrib['id']
             condition = self.element.attrib['condition']
             context_type = self.element.find('Context').attrib['type']
             search = self.element.find('Context').attrib['search']
