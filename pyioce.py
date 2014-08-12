@@ -142,6 +142,14 @@ class AboutDialog(wx.Dialog):
         
         vbox = wx.BoxSizer(wx.VERTICAL)
 
+        title_text = "Python IOC Editor"
+        title_text_box = wx.StaticText(self, label=title_text)
+        vbox.Add(title_text_box, 1, wx.ALIGN_CENTER | wx.TOP | wx.LEFT | wx.RIGHT, 10)
+
+        about_text = "Copyright 2014 Yahoo\nAuthored by Sean Gillespie\nLicensed under the Apache 2.0 license"
+        
+        about_text_box = wx.StaticText(self, label=about_text)
+        vbox.Add(about_text_box, 1,  wx.ALIGN_CENTER | wx.BOTTOM| wx.LEFT | wx.RIGHT, 10)
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -150,7 +158,7 @@ class AboutDialog(wx.Dialog):
         button_sizer.AddButton(ok_button)
         button_sizer.Realize()
 
-        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER| wx.ALL, 5)
 
         self.SetSizer(vbox)
         vbox.Fit(self)
@@ -745,37 +753,32 @@ class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.itemDataMap.pop(self.GetItemData(param))
         self.DeleteItem(param)
 
-        for element in self.parameters.findall('param'):
-            if element.get('id') == param_id: #FIXME
-                self.parameters.remove(element)
-
+        element = self.parameters.find("param[@id='"+ param_id +"']")
+        self.parameters.remove(element)
 
     def edit_param(self, param):
         index = self.GetItemData(param)
         param_id, param_name, param_value = self.itemDataMap[index]
 
-        for element in self.parameters.findall('param'):
-            if element.get('id') == param_id:
+        element = self.parameters.find("param[@id='"+ param_id +"']")
 
-                new_element = copy.deepcopy(element)
+        new_element = copy.deepcopy(element)
 
-                param_dailog = ParamDialog(self, param=new_element)
-                param_dailog.CenterOnScreen()x
-            
-                if param_dailog.ShowModal() == wx.ID_OK:
-                    parent_element = element.getparent()
-                    parent_element.insert(parent_element.index(element),new_element)
-                    parent_element.remove(element)
-                    param_name = new_element.get('name')
-                    param_value = new_element.find('value').text
+        param_dailog = ParamDialog(self, param=new_element)
+        param_dailog.CenterOnScreen()
+    
+        if param_dailog.ShowModal() == wx.ID_OK:
+            parent_element = element.getparent()
+            parent_element.insert(parent_element.index(element),new_element)
+            parent_element.remove(element)
+            param_name = new_element.get('name')
+            param_value = new_element.find('value').text
 
-                    self.SetStringItem(param, 0, " " + param_name)
-                    self.SetStringItem(param, 1, " " + param_value)
-                    self.itemDataMap[index] = (param_id, param_name, param_value)
+            self.SetStringItem(param, 0, " " + param_name)
+            self.SetStringItem(param, 1, " " + param_value)
+            self.itemDataMap[index] = (param_id, param_name, param_value)
 
-                param_dailog.Destroy()
-
-
+        param_dailog.Destroy()
 
 
 class IOCListPanel(wx.Panel):
