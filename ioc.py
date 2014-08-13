@@ -88,6 +88,8 @@ class IOC():
                 self.working_xml.append(ioc_et.make_definition_node(ioc_et.make_Indicator_node("OR")))
                 self.criteria = self.working_xml.find('definition')
 
+            self.parameters = None
+
         elif self.working_xml.nsmap[None] == "http://openioc.org/schemas/OpenIOC_1.1":
             self.version = "1.1"
             metadata_root = self.working_xml.find('metadata')
