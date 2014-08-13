@@ -937,7 +937,7 @@ class PyIOCe(wx.Frame):
         self.ioc_list = IOCList()
         self.current_ioc = None
 
-        indicator_terms_file = open('indicator_terms.json','r')
+        indicator_terms_file = open('./indicator_terms.json','r')
 
         self.indicator_terms = json.loads(indicator_terms_file.read())
 

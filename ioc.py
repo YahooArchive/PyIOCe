@@ -77,26 +77,59 @@ class IOC():
         self.orig_xml = copy.deepcopy(ioc_xml)
 
         self.attributes = self.working_xml.attrib
+        metadata_root = "TEST"
 
         if self.working_xml.nsmap[None] == "http://schemas.mandiant.com/2010/ioc":
             self.version = "1.0"
-            self.name = self.working_xml.find('short_description')
-            self.desc = self.working_xml.find('description')
-            self.author = self.working_xml.find('authored_by')
-            self.created = self.working_xml.find('authored_date')
-            self.links = self.working_xml.find('links')
+            metadata_root = self.working_xml
+
             self.criteria = self.working_xml.find('definition')
-            #FIXME Keywords
+            if self.criteria == None:
+                self.working_xml.append(ioc_et.make_definition_node(ioc_et.make_Indicator_node("OR")))
+                self.criteria = self.working_xml.find('definition')
 
         elif self.working_xml.nsmap[None] == "http://openioc.org/schemas/OpenIOC_1.1":
             self.version = "1.1"
-            self.name = self.working_xml.find('metadata/short_description')
-            self.desc = self.working_xml.find('metadata/description')
-            self.author = self.working_xml.find('metadata/authored_by')
-            self.created = self.working_xml.find('metadata/authored_date')
-            self.links = self.working_xml.find('metadata/links')
+            metadata_root = self.working_xml.find('metadata')
+            if metadata_root == None:
+                self.working_xml.append(ioc_et.make_metadata_node(name = "*Missing*", author = "*Missing*", description = "*Missing*", links=ioc_et.make_links_node()))
+                metadata_root = self.working_xml.find('metadata')
+            
             self.criteria = self.working_xml.find('criteria')
+            if self.criteria == None:
+                self.working_xml.append(ioc_et.make_criteria_node(ioc_et.make_Indicator_node("OR")))
+                self.criteria = self.working_xml.find('criteria')
+
             self.parameters = self.working_xml.find('parameters')
+            if self.parameters == None:
+                self.working_xml.append(ioc_et.make_parameters_node())
+                self.parameters = self.working_xml.find('parameters')
+
+        self.name = metadata_root.find('short_description')
+        if self.name == None:
+            metadata_root.append(ioc_et.make_short_description_node("*Missing*"))
+            self.name = metadata_root.find('short_description')
+
+        self.desc = metadata_root.find('description')
+        if self.desc == None:
+            metadata_root.append(ioc_et.make_description_node("*Missing*"))
+            self.desc = metadata_root.find('description')
+
+        self.author = metadata_root.find('authored_by')
+        if self.author == None:
+            metadata_root.append(ioc_et.make_authored_by_node("*Missing*"))
+            self.author = metadata_root.find('authored_by')
+
+        self.created = metadata_root.find('authored_date')
+        if self.created == None:
+            metadata_root.append(ioc_et.make_authored_date_node())
+            self.created = metadata_root.find('authored_date')
+
+        self.links = metadata_root.find('links')
+        if self.links == None:
+            metadata_root.append(ioc_et.make_links_node())
+            self.links = metadata_root.find('links')
+
 
     def get_uuid(self):
         return self.attributes['id']

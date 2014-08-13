@@ -37,11 +37,9 @@ def make_IOC_root(id=None, version="1.1"):
     if version == "1.0":
         NSMAP[None] = "http://schemas.mandiant.com/2010/ioc"
         root = et.Element('ioc', nsmap = NSMAP)
-        # root.attrib['xmlns'] = "http://schemas.mandiant.com/2010/ioc"
     elif version == "1.1":
         NSMAP[None] = "http://openioc.org/schemas/OpenIOC_1.1"
         root = et.Element('OpenIOC', nsmap = NSMAP)
-        # root.attrib['xmlns'] = 'http://openioc.org/schemas/OpenIOC_1.1'
     else:
         raise ValueError('Invalid Version')
 
@@ -61,7 +59,7 @@ def make_metadata_node(name = None,
     metadata_node = et.Element('metadata')
     metadata_node.append(make_short_description_node(name))
     metadata_node.append(make_description_node(description))
-    metadata_node.append(make_keywords_node())
+    #metadata_node.append(make_keywords_node())
     metadata_node.append(make_authored_by_node(author))
     metadata_node.append(make_authored_date_node())
     metadata_node.append(make_links_node(links))
