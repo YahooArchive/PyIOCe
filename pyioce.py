@@ -144,12 +144,39 @@ class AboutDialog(wx.Dialog):
 
         title_text = "Python IOC Editor"
         title_text_box = wx.StaticText(self, label=title_text)
-        vbox.Add(title_text_box, 1, wx.ALIGN_CENTER | wx.TOP | wx.LEFT | wx.RIGHT, 10)
+        vbox.Add(title_text_box, 0, wx.ALIGN_CENTER | wx.ALL, 10)
 
         about_text = "Copyright 2014 Yahoo\nAuthored by Sean Gillespie\nLicensed under the Apache 2.0 license"
         
         about_text_box = wx.StaticText(self, label=about_text)
-        vbox.Add(about_text_box, 1,  wx.ALIGN_CENTER | wx.BOTTOM| wx.LEFT | wx.RIGHT, 10)
+        vbox.Add(about_text_box, 0,  wx.ALIGN_CENTER | wx.BOTTOM| wx.LEFT | wx.RIGHT, 10)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+class HotkeyDialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, title="PyIOCe Hotkeys", style=wx.DEFAULT_DIALOG_STYLE)
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        title_text = "Python IOC Editor Hotkeys"
+        title_text_box = wx.StaticText(self, label=title_text)
+        vbox.Add(title_text_box, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+
+        hotkey_text = "a - Insert AND\no - Insert OR\ni - Insert IndicatorItem\nd - Delete Item\nn - Toggle Negation\nc - Toggle Case Sensitivity (1.1+ only)"
+
+        hotkey_text_box = wx.StaticText(self, label=hotkey_text)
+        vbox.Add(hotkey_text_box, 0,  wx.ALIGN_CENTER | wx.BOTTOM| wx.LEFT | wx.RIGHT, 10)
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -272,8 +299,12 @@ class IndicatorDialog(wx.Dialog):
             content_type =  self.element.find('Content').attrib['type']
             content =  self.element.find('Content').text
 
-            search_list = sorted(self.indicator_terms[context_type].keys())
-            context_type_list = indicator_terms.keys()
+            try:
+                search_list = sorted(self.indicator_terms[context_type].keys())
+            except:
+                search_list = []
+
+            context_type_list = indicator_terms.keys() + [context_type]
 
             if self.current_ioc.version == "1.0":
                 condition_list = ['is', 'isnot', 'contains', 'containsnot']
@@ -373,7 +404,10 @@ class IndicatorDialog(wx.Dialog):
 
     def on_context_type_change(self, event):
         self.element.find('Context').set('type', self.context_type_box.GetValue())
-        new_search_list = sorted(self.indicator_terms[self.context_type_box.GetValue()].keys())
+        try:
+            new_search_list = sorted(self.indicator_terms[self.context_type_box.GetValue()].keys())
+        except:
+            new_search_list = []
         self.search_box.SetItems(new_search_list)
         self.search_box.choices = new_search_list
 
@@ -381,11 +415,14 @@ class IndicatorDialog(wx.Dialog):
         self.element.find('Context').set('search', self.search_box.GetValue())
         context_type = self.context_type_box.GetValue()
         search = self.search_box.GetValue()
-        if search in self.indicator_terms[context_type].keys():
-            content_type = self.indicator_terms[context_type][search]['content_type']
-            context_doc = self.indicator_terms[context_type][search]['context_doc']
-            self.element.find('Content').set('type', content_type)
-            self.element.find('Context').set('document', context_doc)
+        try:
+            if search in self.indicator_terms[context_type].keys():
+                content_type = self.indicator_terms[context_type][search]['content_type']
+                context_doc = self.indicator_terms[context_type][search]['context_doc']
+                self.element.find('Content').set('type', content_type)
+                self.element.find('Context').set('document', context_doc)
+        except:
+            pass
 
     def on_condition_change(self, event):
         self.element.set('condition', self.condition_box.GetValue())
@@ -449,6 +486,7 @@ class PyIOCeHelpMenu(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
         self.Append(wx.ID_ABOUT, "&About PyIOCe")
+        self.Append(wx.ID_HELP, "&Hotkey List")
 
 
 class PyIOCeMenuBar(wx.MenuBar):
@@ -465,7 +503,13 @@ class IOCTreeCtrl(wx.TreeCtrl):
         wx.TreeCtrl.__init__(self, parent, -1)
 
         self.root_item_id = None
-    
+
+        size = (16, 16)
+        self.imageList = wx.ImageList(*size)
+        self.imageList.Add(wx.ArtProvider.GetBitmap(wx.ART_NORMAL_FILE, wx.ART_OTHER, size))
+        self.imageList.Add(wx.ArtProvider.GetBitmap(wx.ART_WARNING, wx.ART_OTHER, size))
+        self.SetImageList(self.imageList)
+
     def is_descendent(self, dst_item_id, src_item_id):
         if dst_item_id == self.root_item_id:
             return False
@@ -475,21 +519,29 @@ class IOCTreeCtrl(wx.TreeCtrl):
         else:
             return self.is_descendent(dst_item_parent_id, src_item_id)
 
-    def build_tree(self, parent, parent_id):
+    def build_tree(self, parent, parent_id, param_list):
         for child in parent:
             if child.tag.startswith("Indicator"):
                 (label, color) = generate_label(child)
                 child_id = self.AppendItem(parent_id, label, data=wx.TreeItemData(child))
                 self.SetItemTextColour(child_id, color)
-                self.build_tree(child, child_id)
+                if child.get('id') in param_list:
+                    self.SetItemImage(child_id, 0, wx.TreeItemIcon_Normal)
+                self.build_tree(child, child_id, param_list)
 
-    def init_tree(self, criteria):        
+    def init_tree(self, criteria, parameters):        
         indicator = criteria.find('Indicator')
 
         self.clear_tree()
         self.root_item_id = self.AddRoot(indicator.get('operator'), data=wx.TreeItemData(indicator))
 
-        self.build_tree(indicator, self.root_item_id)
+        param_list = []
+
+        if parameters != None:
+            for param in parameters.findall('param'):
+                param_list.append(param.get('ref-id'))
+
+        self.build_tree(indicator, self.root_item_id, param_list)
 
         self.ExpandAll()
 
@@ -549,9 +601,23 @@ class IOCTreeCtrl(wx.TreeCtrl):
         else:
             return expanded_item_list
 
+    def update_item(self, indicator_id, indicator_element, parameters):
+        param_list = []
+        if parameters != None:
+            for param in parameters.findall('param'):
+                param_list.append(param.get('ref-id'))
+
+        (label, color) = generate_label(indicator_element)
+        self.SetItemText(indicator_id, label)
+        self.SetItemTextColour(indicator_id, color)
+        self.SetItemData(indicator_id, wx.TreeItemData(indicator_element))
+        if indicator_element.get('id') in param_list:
+            self.SetItemImage(indicator_id, 0, wx.TreeItemIcon_Normal)
+                
+
     def update(self, current_ioc):
         if current_ioc != None:
-            self.init_tree(current_ioc.criteria)
+            self.init_tree(current_ioc.criteria, current_ioc.parameters)
         else:
             self.clear_tree()
 
@@ -762,17 +828,17 @@ class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
         element = self.parameters.find("param[@id='"+ param_id +"']")
 
-        new_element = copy.deepcopy(element)
+        new_param_element = copy.deepcopy(element)
 
-        param_dailog = ParamDialog(self, param=new_element)
+        param_dailog = ParamDialog(self, param=new_param_element)
         param_dailog.CenterOnScreen()
     
         if param_dailog.ShowModal() == wx.ID_OK:
             parent_element = element.getparent()
-            parent_element.insert(parent_element.index(element),new_element)
+            parent_element.insert(parent_element.index(element),new_param_element)
             parent_element.remove(element)
-            param_name = new_element.get('name')
-            param_value = new_element.find('value').text
+            param_name = new_param_element.get('name')
+            param_value = new_param_element.find('value').text
 
             self.SetStringItem(param, 0, " " + param_name)
             self.SetStringItem(param, 1, " " + param_value)
@@ -968,6 +1034,7 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_revert, id=wx.ID_REVERT)
         self.Bind(wx.EVT_MENU, self.on_convert, id=wx.ID_REPLACE)
         self.Bind(wx.EVT_MENU, self.on_about, id=wx.ID_ABOUT)
+        self.Bind(wx.EVT_MENU, self.on_help, id=wx.ID_HELP)
         self.Bind(wx.EVT_MENU, self.on_clone, id=wx.ID_DUPLICATE)
 
         accel_table = wx.AcceleratorTable([
@@ -1043,8 +1110,9 @@ class PyIOCe(wx.Frame):
 
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.on_indicator_begin_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_TREE_END_DRAG, self.on_indicator_end_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
-        self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_indicator_activated, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_SEL_CHANGED, self.on_indicator_select, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_TREE_SEL_CHANGING, self.on_indicator_select, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_indicator_activated, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_esc)
 
         self.Bind(wx.EVT_TEXT, self.on_author_input, self.ioc_metadata_panel.ioc_author_view)
@@ -1074,16 +1142,19 @@ class PyIOCe(wx.Frame):
 
         return selected_dir
 
-    def open_indicator_dialog(self):
-        new_element = copy.deepcopy(self.current_indicator_element)
+    def open_indicator_dialog(self, current_indicator_id):
+        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        new_indicator_element = copy.deepcopy(current_indicator_element)
 
-        indicator_dialog = IndicatorDialog(self, element=new_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms)
+        indicator_dialog = IndicatorDialog(self, element=new_indicator_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms)
         indicator_dialog.CenterOnScreen()
     
         if indicator_dialog.ShowModal() == wx.ID_OK:
-            parent_element = self.current_indicator_element.getparent()
-            parent_element.insert(parent_element.index(self.current_indicator_element),new_element)
-            parent_element.remove(self.current_indicator_element)
+            parent_element = current_indicator_element.getparent()
+            parent_element.insert(parent_element.index(current_indicator_element),new_indicator_element)
+            parent_element.remove(current_indicator_element)
+            current_indicator_element = new_indicator_element
+            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update_item(current_indicator_id, current_indicator_element, self.current_ioc.parameters)
 
         indicator_dialog.Destroy()
 
@@ -1115,6 +1186,14 @@ class PyIOCe(wx.Frame):
         about_dialog.ShowModal()
 
         about_dialog.Destroy()
+
+    def on_help(self, event):
+        hotkey_dialog = HotkeyDialog(self)
+        hotkey_dialog.CenterOnScreen()
+
+        hotkey_dialog.ShowModal()
+
+        hotkey_dialog.Destroy()
 
     def on_quit(self, event):
         self.Close()
@@ -1179,7 +1258,7 @@ class PyIOCe(wx.Frame):
         self.update_status_bar(self.current_ioc_file)
 
         self.current_indicator_id = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id
-        self.current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
     def on_ioc_activated(self,event):
         self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
@@ -1189,12 +1268,11 @@ class PyIOCe(wx.Frame):
 
     def on_indicator_select(self, event):
         self.current_indicator_id = event.GetItem()
-        self.current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
     def on_indicator_activated(self, event):
         if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
-            self.open_indicator_dialog()
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
+            self.open_indicator_dialog(self.current_indicator_id)
+            # self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
@@ -1291,72 +1369,77 @@ class PyIOCe(wx.Frame):
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_case(self, event):
-        if self.current_indicator_element.tag == "IndicatorItem":
+        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        if current_indicator_element.tag == "IndicatorItem":
             if self.current_ioc.version != "1.0":
-                if self.current_indicator_element.get('preserve-case') == "true":
-                    self.current_indicator_element.set('preserve-case', 'false')
+                if current_indicator_element.get('preserve-case') == "true":
+                    current_indicator_element.set('preserve-case', 'false')
                 else:
-                    self.current_indicator_element.set('preserve-case', 'true') 
+                    current_indicator_element.set('preserve-case', 'true') 
 
-                (label, color) = generate_label(self.current_indicator_element)
+                (label, color) = generate_label(current_indicator_element)
                 self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
 
     def on_not(self, event):
-        if self.current_indicator_element.tag == "IndicatorItem":
+        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        if current_indicator_element.tag == "IndicatorItem":
             if self.current_ioc.version == "1.0":
-                if self.current_indicator_element.get('condition') == "is":
-                    self.current_indicator_element.set('condition', 'isnot')
-                elif self.current_indicator_element.get('condition') == "isnot":
-                    self.current_indicator_element.set('condition', 'is')
-                elif self.current_indicator_element.get('condition') == "contains":
-                    self.current_indicator_element.set('condition', 'containsnot')
-                elif self.current_indicator_element.get('condition') == "containsnot":
-                    self.current_indicator_element.set('condition', 'contains')
+                if current_indicator_element.get('condition') == "is":
+                    current_indicator_element.set('condition', 'isnot')
+                elif current_indicator_element.get('condition') == "isnot":
+                    current_indicator_element.set('condition', 'is')
+                elif current_indicator_element.get('condition') == "contains":
+                    current_indicator_element.set('condition', 'containsnot')
+                elif current_indicator_element.get('condition') == "containsnot":
+                    current_indicator_element.set('condition', 'contains')
             else:
-                if self.current_indicator_element.get('negate') == "true":
-                    self.current_indicator_element.set('negate', 'false')
+                if current_indicator_element.get('negate') == "true":
+                    current_indicator_element.set('negate', 'false')
                 else:
-                    self.current_indicator_element.set('negate', 'true')
+                    current_indicator_element.set('negate', 'true')
 
-            (label, color) = generate_label(self.current_indicator_element)
+            (label, color) = generate_label(current_indicator_element)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemText(self.current_indicator_id, label)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
 
     def on_and(self, event):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
         new_indicator_element = ioc_et.make_Indicator_node("AND")
+        current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
-        if self.current_indicator_element.tag == "Indicator":
-            self.current_indicator_element.append(new_indicator_element)
+        if current_indicator_element.tag == "Indicator":
+            current_indicator_element.append(new_indicator_element)
             ioc_tree_ctrl.AppendItem(self.current_indicator_id, new_indicator_element.get('operator'), data=wx.TreeItemData(new_indicator_element))
-        elif self.current_indicator_element.tag == "IndicatorItem":
-            self.current_indicator_element.getparent().append(new_indicator_element)
+        elif current_indicator_element.tag == "IndicatorItem":
+            current_indicator_element.getparent().append(new_indicator_element)
             ioc_tree_ctrl.AppendItem(ioc_tree_ctrl.GetItemParent(self.current_indicator_id), new_indicator_element.get('operator'), data=wx.TreeItemData(new_indicator_element))
         ioc_tree_ctrl.Expand(self.current_indicator_id)
 
     def on_or(self, event):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
         new_indicator_element = ioc_et.make_Indicator_node("OR")
+        current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
  
-        if self.current_indicator_element.tag == "Indicator":
-            self.current_indicator_element.append(new_indicator_element)
+        if current_indicator_element.tag == "Indicator":
+            current_indicator_element.append(new_indicator_element)
             ioc_tree_ctrl.AppendItem(self.current_indicator_id, new_indicator_element.get('operator'), data=wx.TreeItemData(new_indicator_element))
-        elif self.current_indicator_element.tag == "IndicatorItem":
-            self.current_indicator_element.getparent().append(new_indicator_element)
+        elif current_indicator_element.tag == "IndicatorItem":
+            current_indicator_element.getparent().append(new_indicator_element)
             ioc_tree_ctrl.AppendItem(ioc_tree_ctrl.GetItemParent(self.current_indicator_id), new_indicator_element.get('operator'), data=wx.TreeItemData(new_indicator_element))
         ioc_tree_ctrl.Expand(self.current_indicator_id)
 
     def on_insert(self, event):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
         new_indicatoritem_element = ioc_et.make_IndicatorItem_node(context_type = self.default_context_type)
+        current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         
         (label, color) = generate_label(new_indicatoritem_element)
 
-        if self.current_indicator_element.tag == "Indicator":
-            self.current_indicator_element.append(new_indicatoritem_element)
+        if current_indicator_element.tag == "Indicator":
+            current_indicator_element.append(new_indicatoritem_element)
             new_indicatoritem_id = ioc_tree_ctrl.AppendItem(self.current_indicator_id, label, data=wx.TreeItemData(new_indicatoritem_element))
-        elif self.current_indicator_element.tag == "IndicatorItem":
-            self.current_indicator_element.getparent().append(new_indicatoritem_element)
+        elif current_indicator_element.tag == "IndicatorItem":
+            current_indicator_element.getparent().append(new_indicatoritem_element)
             new_indicatoritem_id = ioc_tree_ctrl.AppendItem(ioc_tree_ctrl.GetItemParent(self.current_indicator_id), label, data=wx.TreeItemData(new_indicatoritem_element))
         ioc_tree_ctrl.SetItemTextColour(new_indicatoritem_id, color)
         ioc_tree_ctrl.Expand(self.current_indicator_id)
@@ -1364,16 +1447,17 @@ class PyIOCe(wx.Frame):
 
     def on_delete(self, event):
         if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
+            current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
-            parent_element = self.current_indicator_element.getparent()
+            parent_element = current_indicator_element.getparent()
 
             parent_id = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemParent(self.current_indicator_id)
-            
-            child_element = self.current_indicator_element
+
+            child_element = current_indicator_element
             child_id = self.current_indicator_id
             
             self.current_indicator_id = parent_id
-            self.current_indicator_element = parent_element
+            current_indicator_element = parent_element
             
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.Delete(child_id)
 
