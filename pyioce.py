@@ -787,8 +787,9 @@ class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.InsertColumn(0, 'Name')
         self.InsertColumn(1, 'Value', width = 300)
 
-        for param in self.parameters.findall('param'):
-            if param.get('ref-id') == self.indicator_id: #FIXME
+        parameters = self.parameters.findall("param[@ref-id='"+ self.indicator_id +"']")
+        if parameters != None:
+            for param in parameters:
                 index = len(self.itemDataMap)
                 
                 param_name = param.get('name')
@@ -1185,7 +1186,6 @@ class PyIOCe(wx.Frame):
 
     def on_search_input(self, event):
         self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list, self.toolbar_search.GetValue()) 
-        pass #FIXME
 
     def on_about(self, event):
         about_dialog = AboutDialog(self)
