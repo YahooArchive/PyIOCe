@@ -23,6 +23,7 @@ import wx.lib.scrolledpanel as sp
 import ioc_et
 import copy
 import json
+import re
 
 class ParamDialog(wx.Dialog):
     def __init__(self, parent, param):
@@ -162,6 +163,7 @@ class AboutDialog(wx.Dialog):
 
         self.SetSizer(vbox)
         vbox.Fit(self)
+
 
 class HotkeyDialog(wx.Dialog):
     def __init__(self, parent):
@@ -632,7 +634,7 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def GetListCtrl(self):
         return self
 
-    def update(self,ioc_list):
+    def update(self,ioc_list, search_filter=None):
 
         self.DeleteAllItems()
         self.itemDataMap = {}
@@ -644,6 +646,11 @@ class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
             ioc_uuid = ioc_list.iocs[ioc_file].get_uuid()
             ioc_modified = ioc_list.iocs[ioc_file].get_modified()
             ioc_version = ioc_list.iocs[ioc_file].version
+
+            if search_filter != None:
+                if search_filter.lower() not in ioc_name.lower() and search_filter.lower() not in ioc_uuid.lower():
+                    continue
+
 
             self.itemDataMap[index] = (ioc_name, ioc_uuid, ioc_modified, ioc_file)
 
@@ -1177,6 +1184,7 @@ class PyIOCe(wx.Frame):
         event.Skip()
 
     def on_search_input(self, event):
+        self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list, self.toolbar_search.GetValue()) 
         pass #FIXME
 
     def on_about(self, event):
