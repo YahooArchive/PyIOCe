@@ -216,7 +216,7 @@ class IOCList():
 
         return full_path
 
-    def add_ioc(self, version):
+    def add_ioc(self, author, version):
         new_ioc_xml = ioc_et.make_IOC_root(version=version)
 
         ioc_file = new_ioc_xml.attrib['id'] + ".ioc"
@@ -225,7 +225,7 @@ class IOCList():
         if version == "1.0":
             new_ioc_xml.append(ioc_et.make_short_description_node(name = "*New IOC*"))
             new_ioc_xml.append(ioc_et.make_description_node(text="PyIOCe Generated IOC"))
-            new_ioc_xml.append(ioc_et.make_authored_by_node(author = 'PyIOCe'))
+            new_ioc_xml.append(ioc_et.make_authored_by_node(author = author))
             new_ioc_xml.append(ioc_et.make_authored_date_node())
             new_ioc_xml.append(ioc_et.make_links_node())
             new_ioc_xml.append(ioc_et.make_definition_node(ioc_et.make_Indicator_node("OR")))

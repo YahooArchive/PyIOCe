@@ -25,6 +25,69 @@ import copy
 import json
 import re
 
+class PreferencesDialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, title="Preferences", style=wx.DEFAULT_DIALOG_STYLE)
+
+        self.default_version = parent.preferences["default_version"]
+        self.default_context = parent.preferences["default_context"]
+        self.default_author = parent.preferences["default_author"]
+
+        version_list = ["1.0", "1.1"]
+        context_type_list = parent.indicator_terms.keys()
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(3,2,0,0)
+  
+        version_label = wx.StaticText(self, label="Default Version : ")
+        self.version_box = wx.ComboBox(self, choices = version_list, style=wx.CB_READONLY)
+        self.version_box.SetValue(self.default_version)
+
+        context_label = wx.StaticText(self, label="Default Context : ")
+        self.context_box = wx.ComboBox(self, choices = context_type_list, style=wx.CB_READONLY)
+        self.context_box.SetValue(self.default_context)
+
+        author_label = wx.StaticText(self, label="Default Author : ")
+        self.author_box = wx.TextCtrl(self, size=(200,-1))
+        self.author_box.SetValue(self.default_author)
+
+        fgs.AddMany([(version_label, 0, wx.ALIGN_RIGHT), (self.version_box,0, wx.ALIGN_RIGHT),(context_label, 0, wx.ALIGN_RIGHT), (self.context_box,0, wx.ALIGN_RIGHT),(author_label, 0, wx.ALIGN_RIGHT), (self.author_box,0, wx.ALIGN_RIGHT)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+        
+        self.Bind(wx.EVT_COMBOBOX, self.on_version_change, self.version_box)
+        self.Bind(wx.EVT_COMBOBOX, self.on_context_change, self.context_box)
+        self.Bind(wx.EVT_TEXT, self.on_author_change, self.author_box)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    
+    def on_version_change(self, event):
+        self.default_version = self.version_box.GetValue()
+
+    def on_context_change(self, event):
+        self.default_context = self.context_box.GetValue()
+
+    def on_author_change(self, event):    
+        self.default_author = self.author_box.GetValue()
+
+
 class ParamDialog(wx.Dialog):
     def __init__(self, parent, param):
         wx.Dialog.__init__(self, parent, -1, title="Edit Parameter", style=wx.DEFAULT_DIALOG_STYLE)
@@ -470,7 +533,8 @@ class PyIOCeFileMenu(wx.Menu):
         self.Append(wx.ID_NEW, '&New')
         self.Append(wx.ID_OPEN, '&Open')
         self.Append(wx.ID_SAVE, '&Save')
-        self.Append(wx.ID_SAVEAS, '&Save All')
+        self.Append(wx.ID_SAVEAS, 'Save &All')
+        self.Append(wx.ID_PREFERENCES, '&Preferences')
 
 
 class PyIOCeEditMenu(wx.Menu):
@@ -490,6 +554,17 @@ class PyIOCeHelpMenu(wx.Menu):
         self.Append(wx.ID_ABOUT, "&About PyIOCe")
         self.Append(wx.ID_HELP, "&Hotkey List")
 
+class PyIOCeHelpMenu(wx.Menu):
+    def __init__(self):
+        wx.Menu.__init__(self)
+        self.Append(wx.ID_ABOUT, "&About PyIOCe")
+        self.Append(wx.ID_HELP, "&Hotkey List")
+
+class PyIOCeTermsMenu(wx.Menu):
+    def __init__(self):
+        wx.Menu.__init__(self)
+        self.Append(wx.ID_PROPERTIES, "&Indicator Terms")
+        self.Append(wx.ID_CONVERT, "&Term Conversion Map")
 
 class PyIOCeMenuBar(wx.MenuBar):
     def __init__(self):
@@ -498,6 +573,7 @@ class PyIOCeMenuBar(wx.MenuBar):
         self.Append(PyIOCeFileMenu(), '&File')
         self.Append(PyIOCeEditMenu(), '&Edit')
         self.Append(PyIOCeHelpMenu(), '&Help')
+        self.Append(PyIOCeTermsMenu(), '&Terms')
 
 
 class IOCTreeCtrl(wx.TreeCtrl):
@@ -1006,16 +1082,26 @@ class PyIOCe(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(PyIOCe, self).__init__(*args, **kwargs) 
         
-        self.default_ioc_version = "1.1" #FIXME Make Menu
-        self.default_context_type = "grr" #FIXME Make Menu
+        self.preferences = {}
+
+        try:
+            preferences_file = open(BASE_DIR + 'preferences.json','r')
+            self.preferences = json.loads(preferences_file.read())
+            preferences_file.close()
+        except:
+            self.preferences["default_version"] = "1.1"
+            self.preferences["default_context"] = "mir"
+            self.preferences["default_author"] = "PyIOCe"
+
         self.ioc_list = IOCList()
         self.current_ioc = None
 
-        indicator_terms_file = open('./indicator_terms.json','r')
-
-        self.indicator_terms = json.loads(indicator_terms_file.read())
-
-        indicator_terms_file.close()
+        try:
+            indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','r')
+            self.indicator_terms = json.loads(indicator_terms_file.read())
+            indicator_terms_file.close()
+        except:
+            pass
 
         self.init_menubar()
         self.init_toolbar()
@@ -1044,6 +1130,9 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_about, id=wx.ID_ABOUT)
         self.Bind(wx.EVT_MENU, self.on_help, id=wx.ID_HELP)
         self.Bind(wx.EVT_MENU, self.on_clone, id=wx.ID_DUPLICATE)
+        self.Bind(wx.EVT_MENU, self.on_preferences, id=wx.ID_PREFERENCES)
+        self.Bind(wx.EVT_MENU, self.on_terms, id=wx.ID_PROPERTIES)
+        self.Bind(wx.EVT_MENU, self.on_map, id=wx.ID_CONVERT)
 
         accel_table = wx.AcceleratorTable([
             (wx.ACCEL_CTRL, ord('n'), wx.ID_NEW),
@@ -1066,20 +1155,20 @@ class PyIOCe(wx.Frame):
         self.toolbar_search = wx.TextCtrl(toolbar, size=(200,-1))
         toolbar_search_label = wx.StaticText(toolbar, label="Search:")
 
-        toolbar.AddSimpleTool(wx.ID_NEW, wx.Image('./images/new.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'New', '')
-        toolbar.AddSimpleTool(wx.ID_OPEN, wx.Image('./images/open.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Open Dir', '')
-        toolbar.AddSimpleTool(wx.ID_SAVE, wx.Image('./images/save.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save', '')
-        toolbar.AddSimpleTool(wx.ID_SAVEAS, wx.Image('./images/saveall.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save All', '')
+        toolbar.AddSimpleTool(wx.ID_NEW, wx.Image(BASE_DIR + 'images/new.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'New', '')
+        toolbar.AddSimpleTool(wx.ID_OPEN, wx.Image(BASE_DIR + 'images/open.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Open Dir', '')
+        toolbar.AddSimpleTool(wx.ID_SAVE, wx.Image(BASE_DIR + 'images/save.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save', '')
+        toolbar.AddSimpleTool(wx.ID_SAVEAS, wx.Image(BASE_DIR + 'images/saveall.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Save All', '')
         toolbar.AddStretchableSpace()
         toolbar.AddControl(toolbar_search_label)
         toolbar.AddControl(self.toolbar_search,'Search')
         toolbar.AddStretchableSpace()
-        toolbar.AddSimpleTool(wx.ID_FILE1, wx.Image('./images/case.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Case', '')
-        toolbar.AddSimpleTool(wx.ID_FILE2, wx.Image('./images/lnot.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Not', '')
-        toolbar.AddSimpleTool(wx.ID_FILE3, wx.Image('./images/land.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'And', '')
-        toolbar.AddSimpleTool(wx.ID_FILE4, wx.Image('./images/lor.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Or', '')
-        toolbar.AddSimpleTool(wx.ID_FILE5, wx.Image('./images/insert.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Insert Item', '')
-        toolbar.AddSimpleTool(wx.ID_FILE6, wx.Image('./images/delete.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Delete Item', '')
+        toolbar.AddSimpleTool(wx.ID_FILE1, wx.Image(BASE_DIR + 'images/case.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Case', '')
+        toolbar.AddSimpleTool(wx.ID_FILE2, wx.Image(BASE_DIR + 'images/lnot.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Not', '')
+        toolbar.AddSimpleTool(wx.ID_FILE3, wx.Image(BASE_DIR + 'images/land.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'And', '')
+        toolbar.AddSimpleTool(wx.ID_FILE4, wx.Image(BASE_DIR + 'images/lor.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Or', '')
+        toolbar.AddSimpleTool(wx.ID_FILE5, wx.Image(BASE_DIR + 'images/insert.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Insert Item', '')
+        toolbar.AddSimpleTool(wx.ID_FILE6, wx.Image(BASE_DIR + 'images/delete.png', wx.BITMAP_TYPE_PNG).ConvertToBitmap(), 'Delete Item', '')
 
 
         toolbar.Realize()
@@ -1187,6 +1276,27 @@ class PyIOCe(wx.Frame):
     def on_search_input(self, event):
         self.ioc_list_panel.ioc_list_ctrl.update(self.ioc_list, self.toolbar_search.GetValue()) 
 
+    def on_preferences(self, event):
+        preferences_dialog = PreferencesDialog(self)
+        preferences_dialog.CenterOnScreen()
+
+        if preferences_dialog.ShowModal() == wx.ID_OK:
+            self.preferences["default_version"] = preferences_dialog.default_version
+            self.preferences["default_context"] = preferences_dialog.default_context
+            self.preferences["default_author"] = preferences_dialog.default_author
+        
+            preferences_file = open(BASE_DIR + 'preferences.json','w')
+            preferences_file.write(json.dumps(self.preferences))
+            preferences_file.close()
+
+        preferences_dialog.Destroy()
+
+    def on_terms(self, event):
+        pass
+
+    def on_map(self, event):
+        pass
+
     def on_about(self, event):
         about_dialog = AboutDialog(self)
         about_dialog.CenterOnScreen()
@@ -1233,7 +1343,7 @@ class PyIOCe(wx.Frame):
             else:
                 return
 
-        self.current_ioc_file = self.ioc_list.add_ioc(version = self.default_ioc_version)
+        self.current_ioc_file = self.ioc_list.add_ioc(author = self.preferences["default_author"], version = self.preferences["default_version"])
         self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
         new_ioc_index = self.ioc_list_panel.ioc_list_ctrl.add_ioc(self.ioc_list, self.current_ioc_file)
         self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
@@ -1243,16 +1353,12 @@ class PyIOCe(wx.Frame):
     def on_save(self, event):
         if self.current_ioc != None:
             self.ioc_list.save_iocs(self.current_ioc_file)
-            # ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
-            # self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
 
     def on_saveall(self, event):
         if self.current_ioc != None:
             self.ioc_list.save_iocs()
-            # ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetFirstSelected()
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
-            # self.ioc_list_panel.ioc_list_ctrl.Select(ioc_index, on=True)
     
     def on_ioc_select(self, event):
         ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetItemData(event.m_itemIndex)
@@ -1280,7 +1386,6 @@ class PyIOCe(wx.Frame):
     def on_indicator_activated(self, event):
         if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
             self.open_indicator_dialog(self.current_indicator_id)
-            # self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
@@ -1438,7 +1543,7 @@ class PyIOCe(wx.Frame):
 
     def on_insert(self, event):
         ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
-        new_indicatoritem_element = ioc_et.make_IndicatorItem_node(context_type = self.default_context_type)
+        new_indicatoritem_element = ioc_et.make_IndicatorItem_node(context_type = self.preferences["default_context"])
         current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         
         (label, color) = generate_label(new_indicatoritem_element)
@@ -1490,6 +1595,7 @@ class PyIOCe(wx.Frame):
             self.open_convert_dialog(self.current_ioc)
 
 if __name__ == '__main__':
+    BASE_DIR = "./"
     app = wx.App()
 
     PyIOCe(None)
