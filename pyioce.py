@@ -542,7 +542,7 @@ class AboutDialog(wx.Dialog):
         
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        title_text = "Python IOC Editor"
+        title_text = "Python IOC Editor v0.9"
         title_text_box = wx.StaticText(self, label=title_text)
         vbox.Add(title_text_box, 0, wx.ALIGN_CENTER | wx.ALL, 10)
 
