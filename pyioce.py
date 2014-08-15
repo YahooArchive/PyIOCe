@@ -25,6 +25,342 @@ import copy
 import json
 import re
 
+class TermDialog(wx.Dialog):
+    def __init__(self, parent, current_term_values):
+        wx.Dialog.__init__(self, parent, -1, title="Edit Term", style=wx.DEFAULT_DIALOG_STYLE)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(1,2,0,0)
+  
+        self.context_doc = current_term_values["context_doc"]
+        self.content_type = current_term_values["content_type"]
+
+        self.context_doc_box = wx.TextCtrl(self)
+        self.context_doc_box.SetValue(self.context_doc)
+
+        self.content_type_box = wx.TextCtrl(self)
+        self.content_type_box.SetValue(self.content_type)
+
+        fgs.AddMany([(self.context_doc_box, 0), (self.content_type_box,0, wx.EXPAND)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        self.Bind(wx.EVT_TEXT, self.on_context_doc_change, self.context_doc_box)
+        self.Bind(wx.EVT_TEXT, self.on_content_type_change, self.content_type_box)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    def on_context_doc_change(self, event):
+        self.context_doc = self.context_doc_box.GetValue()
+
+    def on_content_type_change(self, event):
+        self.content_type = self.content_type_box.GetValue()
+
+
+class KeyDialog(wx.Dialog):
+    def __init__(self, parent, key_type):
+        title = "Add " + key_type
+
+        wx.Dialog.__init__(self, parent, -1, title=title, style=wx.DEFAULT_DIALOG_STYLE)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+  
+        self.key = ""
+        self.key_box = wx.TextCtrl(self)
+        self.key_box.SetValue(self.key)
+
+        hbox1.Add(self.key_box, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        self.Bind(wx.EVT_TEXT, self.on_key_change, self.key_box)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    def on_key_change(self, event):
+        self.key = self.key_box.GetValue()
+
+
+class ContextListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+        ColumnSorterMixin.__init__(self, 3)
+
+        context_types = parent.indicator_terms.keys()
+
+        self.InsertColumn(0, 'Context Type', width=85)
+        self.update(context_types)
+
+    def GetListCtrl(self):
+        return self
+
+    def update(self, context_types):
+
+        self.DeleteAllItems()
+        self.itemDataMap = {}
+
+        for context_type in sorted(context_types):
+            index = len(self.itemDataMap)
+
+            self.itemDataMap[index] = (context_type)
+
+            self.InsertStringItem(index, " " + context_type)
+            self.SetItemData(index, index)
+
+
+class TermListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+        ColumnSorterMixin.__init__(self, 3)
+
+        index = parent.context_list_ctrl.GetItemData(parent.current_context_id)
+        current_context_type = parent.context_list_ctrl.itemDataMap[index]
+
+        current_terms = parent.indicator_terms[current_context_type]
+
+        self.InsertColumn(0, 'Search Term', width=350)
+        self.InsertColumn(1, 'Context Document', width=150)
+        self.InsertColumn(2, 'Content Type', width=100)
+        self.InsertColumn(3, 'Last Modified', width=180)
+
+        self.update(current_terms)
+
+        
+    def GetListCtrl(self):
+        return self
+
+    def update(self, current_terms):
+        self.DeleteAllItems()
+        self.itemDataMap = {}
+
+        for term in sorted(current_terms.keys()):
+            index = len(self.itemDataMap)
+
+            search_term = term
+            context_doc = current_terms[term]["context_doc"]
+            content_type = current_terms[term]["content_type"]
+            last_modified = current_terms[term]["last_modified"]
+
+
+            self.itemDataMap[index] = (search_term, context_doc, content_type, last_modified)
+
+            self.InsertStringItem(index, " " + search_term)
+            self.SetStringItem(index, 1, " " + context_doc)
+            self.SetStringItem(index, 2, " " + content_type)
+            self.SetStringItem(index, 3, " " + last_modified)
+            self.SetItemData(index, index)
+
+
+class TermsDialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, title="Indicator Terms", style=wx.DEFAULT_DIALOG_STYLE)
+
+        self.indicator_terms = copy.deepcopy(parent.indicator_terms)
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(1,2,0,0)
+  
+        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.context_list_ctrl = ContextListCtrl(self)
+        hbox2.Add(self.context_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT, border=5)
+
+
+        hbox2_vbox = wx.BoxSizer(wx.VERTICAL)
+        addcontext_button = wx.Button(self, label='+', size=(25, 25))
+        hbox2_vbox.Add(addcontext_button)
+        delcontext_button = wx.Button(self, label='-', size=(25, 25))
+        hbox2_vbox.Add(delcontext_button)
+        hbox2.Add(hbox2_vbox)
+
+        self.context_list_ctrl.Select(0, on=True)
+        self.current_context_id = 0
+
+        hbox3 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.term_list_ctrl = TermListCtrl(self)
+        hbox3.Add(self.term_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT, border=5)
+
+
+        hbox3_vbox = wx.BoxSizer(wx.VERTICAL)
+        addterm_button = wx.Button(self, label='+', size=(25, 25))
+        hbox3_vbox.Add(addterm_button)
+        delterm_button = wx.Button(self, label='-', size=(25, 25))
+        hbox3_vbox.Add(delterm_button)
+        hbox3.Add(hbox3_vbox)
+
+
+        fgs.AddMany([(hbox2, 0), (hbox3,0, wx.EXPAND | wx.ALIGN_RIGHT)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+
+        reset_button = wx.Button(self, wx.ID_NO, label="Restore Defaults")
+        button_sizer.AddButton(reset_button)
+
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+        self.Bind(wx.EVT_BUTTON, self.on_context_del, delcontext_button)
+        self.Bind(wx.EVT_BUTTON, self.on_context_add, addcontext_button)
+        self.Bind(wx.EVT_BUTTON, self.on_term_del, delterm_button)
+        self.Bind(wx.EVT_BUTTON, self.on_term_add, addterm_button)
+        self.Bind(wx.EVT_BUTTON, self.on_reset, reset_button)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_context_select, self.context_list_ctrl)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_term_select, self.term_list_ctrl)
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_term_activated, self.term_list_ctrl)
+    
+    def on_reset(self, event):
+        indicator_terms_file = open(BASE_DIR + 'indicator_terms.default','r')
+        self.indicator_terms = json.loads(indicator_terms_file.read())
+        indicator_terms_file.close()
+        context_types = self.indicator_terms.keys()
+        self.context_list_ctrl.update(context_types)
+        try:
+            self.context_list_ctrl.Select(0, on=True)
+        except:
+            self.term_list_ctrl.update({})
+
+    def on_context_add(self, event):
+        context_dialog = KeyDialog(self, "Context Type")
+        context_dialog.CenterOnScreen()
+    
+        if context_dialog.ShowModal() == wx.ID_OK:
+            new_context_type = context_dialog.key
+            if new_context_type != "" and new_context_type not in self.indicator_terms.keys():
+                self.indicator_terms[new_context_type] = {}
+                context_types = self.indicator_terms.keys()
+                self.context_list_ctrl.update(context_types)
+
+        context_dialog.Destroy()
+
+    def on_context_del(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        self.context_list_ctrl.DeleteItem(self.current_context_id)
+        self.context_list_ctrl.itemDataMap.pop(index)
+        self.indicator_terms.pop(current_context_type, None)
+        try:
+            self.context_list_ctrl.Select(0, on=True)
+        except:
+            self.term_list_ctrl.update({})
+
+    def on_term_add(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        term_dialog = KeyDialog(self, "Search Term")
+        term_dialog.CenterOnScreen()
+    
+        if term_dialog.ShowModal() == wx.ID_OK:
+            new_term = term_dialog.key
+            if new_term != "" and new_term not in self.indicator_terms[current_context_type].keys():
+                new_term_values = {}
+                new_term_values["context_doc"] = "default"
+                new_term_values["content_type"] = "string"
+                new_term_values["last_modified"] = ioc_et.get_current_date()
+
+                self.indicator_terms[current_context_type][new_term] = new_term_values
+
+                current_terms = self.indicator_terms[current_context_type]
+                self.term_list_ctrl.update(current_terms)
+
+        term_dialog.Destroy()
+
+    def on_term_del(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        index = self.term_list_ctrl.GetItemData(self.current_term_id)
+        current_term = self.term_list_ctrl.itemDataMap[index][0]
+        self.term_list_ctrl.DeleteItem(self.current_term_id)
+        self.term_list_ctrl.itemDataMap.pop(index)
+        self.indicator_terms[current_context_type].pop(current_term, None)
+
+    def on_context_select(self, event):
+        self.current_context_id = event.m_itemIndex
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        current_terms = self.indicator_terms[current_context_type]
+        self.term_list_ctrl.update(current_terms)
+
+    def on_term_select(self, event):
+        self.current_term_id = event.m_itemIndex
+
+    def on_term_activated(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+
+        index = self.term_list_ctrl.GetItemData(self.current_term_id)
+        current_term = self.term_list_ctrl.itemDataMap[index][0]
+
+        current_term_values = self.indicator_terms[current_context_type][current_term]
+
+        term_dialog = TermDialog(self, current_term_values)
+        term_dialog.CenterOnScreen()
+    
+        if term_dialog.ShowModal() == wx.ID_OK:
+            context_doc = term_dialog.context_doc
+            content_type = term_dialog.content_type
+            last_modified = ioc_et.get_current_date()
+
+            new_term_values = {}
+            new_term_values["context_doc"] = context_doc
+            new_term_values["content_type"] = content_type
+            new_term_values["last_modified"] = last_modified
+
+            self.indicator_terms[current_context_type][current_term] = new_term_values
+
+            self.term_list_ctrl.itemDataMap[index] = (current_term, context_doc, content_type, last_modified)
+            self.term_list_ctrl.SetStringItem(self.current_term_id, 1, " " + context_doc)
+            self.term_list_ctrl.SetStringItem(self.current_term_id, 2, " " + content_type)
+
+        term_dialog.Destroy()
+
+
 class PreferencesDialog(wx.Dialog):
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, title="Preferences", style=wx.DEFAULT_DIALOG_STYLE)
@@ -39,21 +375,21 @@ class PreferencesDialog(wx.Dialog):
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         
-        fgs = wx.FlexGridSizer(3,2,0,0)
+        fgs = wx.FlexGridSizer(3,2,0,10)
   
-        version_label = wx.StaticText(self, label="Default Version : ")
+        version_label = wx.StaticText(self, label="Default Version")
         self.version_box = wx.ComboBox(self, choices = version_list, style=wx.CB_READONLY)
         self.version_box.SetValue(self.default_version)
 
-        context_label = wx.StaticText(self, label="Default Context : ")
+        context_label = wx.StaticText(self, label="Default Context")
         self.context_box = wx.ComboBox(self, choices = context_type_list, style=wx.CB_READONLY)
         self.context_box.SetValue(self.default_context)
 
-        author_label = wx.StaticText(self, label="Default Author : ")
+        author_label = wx.StaticText(self, label="Default Author")
         self.author_box = wx.TextCtrl(self, size=(200,-1))
         self.author_box.SetValue(self.default_author)
 
-        fgs.AddMany([(version_label, 0, wx.ALIGN_RIGHT), (self.version_box,0, wx.ALIGN_RIGHT),(context_label, 0, wx.ALIGN_RIGHT), (self.context_box,0, wx.ALIGN_RIGHT),(author_label, 0, wx.ALIGN_RIGHT), (self.author_box,0, wx.ALIGN_RIGHT)])
+        fgs.AddMany([(version_label, 0, wx.ALIGN_LEFT), (self.version_box,0, wx.ALIGN_RIGHT),(context_label, 0, wx.ALIGN_LEFT), (self.context_box,0, wx.ALIGN_RIGHT),(author_label, 0, wx.ALIGN_LEFT), (self.author_box,0, wx.ALIGN_RIGHT)])
 
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
         vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
@@ -257,7 +593,7 @@ class HotkeyDialog(wx.Dialog):
 
 
 class ConvertDialog(wx.Dialog):
-    def __init__(self, parent, current_ioc):
+    def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, title="Convert IOC", style=wx.DEFAULT_DIALOG_STYLE)
         
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -369,7 +705,7 @@ class IndicatorDialog(wx.Dialog):
             except:
                 search_list = []
 
-            context_type_list = indicator_terms.keys() + [context_type]
+            context_type_list = list(set(indicator_terms.keys() + [context_type]))
 
             if self.current_ioc.version == "1.0":
                 condition_list = ['is', 'isnot', 'contains', 'containsnot']
@@ -554,17 +890,20 @@ class PyIOCeHelpMenu(wx.Menu):
         self.Append(wx.ID_ABOUT, "&About PyIOCe")
         self.Append(wx.ID_HELP, "&Hotkey List")
 
+
 class PyIOCeHelpMenu(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
         self.Append(wx.ID_ABOUT, "&About PyIOCe")
         self.Append(wx.ID_HELP, "&Hotkey List")
 
+
 class PyIOCeTermsMenu(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
         self.Append(wx.ID_PROPERTIES, "&Indicator Terms")
         self.Append(wx.ID_CONVERT, "&Term Conversion Map")
+
 
 class PyIOCeMenuBar(wx.MenuBar):
     def __init__(self):
@@ -774,6 +1113,10 @@ class LinkListCtrl(wx.ListCtrl, ColumnSorterMixin):
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
         ColumnSorterMixin.__init__(self, 3)
+
+        self.InsertColumn(0, 'Key')
+        self.InsertColumn(1, 'Value', width=150)
+        self.InsertColumn(2, 'HREF', width=250)
 
         self.itemDataMap = {}
         
@@ -994,9 +1337,6 @@ class IOCMetadataPanel(wx.Panel):
         hbox4 = wx.BoxSizer(wx.HORIZONTAL)
 
         self.links_list_ctrl = LinkListCtrl(self)
-        self.links_list_ctrl.InsertColumn(0, 'Key')
-        self.links_list_ctrl.InsertColumn(1, 'Value', width=150)
-        self.links_list_ctrl.InsertColumn(2, 'HREF', width=250)
         hbox4.Add(self.links_list_ctrl, proportion=1, flag=wx.RIGHT|wx.EXPAND, border=5)
         
 
@@ -1101,7 +1441,7 @@ class PyIOCe(wx.Frame):
             self.indicator_terms = json.loads(indicator_terms_file.read())
             indicator_terms_file.close()
         except:
-            pass
+            pass #fixme
 
         self.init_menubar()
         self.init_toolbar()
@@ -1208,7 +1548,6 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.on_indicator_begin_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_TREE_END_DRAG, self.on_indicator_end_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_TREE_SEL_CHANGED, self.on_indicator_select, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
-        self.Bind(wx.EVT_TREE_SEL_CHANGING, self.on_indicator_select, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_indicator_activated, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_esc)
 
@@ -1292,8 +1631,17 @@ class PyIOCe(wx.Frame):
         preferences_dialog.Destroy()
 
     def on_terms(self, event):
-        pass
+        terms_dialog = TermsDialog(self)
+        terms_dialog.CenterOnScreen()
 
+        if terms_dialog.ShowModal() == wx.ID_OK:
+            self.indicator_terms = terms_dialog.indicator_terms
+            indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','w')
+            indicator_terms_file.write(json.dumps(self.indicator_terms))
+            indicator_terms_file.close()
+
+        terms_dialog.Destroy()
+        
     def on_map(self, event):
         pass
 
@@ -1389,13 +1737,9 @@ class PyIOCe(wx.Frame):
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
             self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
- 
 
     def on_indicator_begin_drag(self, event):
-        ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
-        item_id = event.GetItem()
-
-        if item_id != ioc_tree_ctrl.root_item_id:
+        if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
             self.current_indicator_id = item_id
             event.Allow()
 
@@ -1591,8 +1935,7 @@ class PyIOCe(wx.Frame):
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_convert(self, event):
-        if self.current_ioc != None:
-            self.open_convert_dialog(self.current_ioc)
+        pass
 
 if __name__ == '__main__':
     BASE_DIR = "./"
