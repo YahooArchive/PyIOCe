@@ -11,6 +11,8 @@ scope a compromise across large enterprise networks.
 
 This project is meant to expand ongoing efforts to broaden the use of OpenIOC with other systems such as Snort, GRR, Splunk, and Yara
 
+Standalone binaries are available under /dist
+
 Required Python Modules:
 wxPython
 lxml
