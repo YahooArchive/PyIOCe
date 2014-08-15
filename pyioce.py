@@ -153,8 +153,7 @@ class TermListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.InsertColumn(3, 'Last Modified', width=180)
 
         self.update(current_terms)
-
-        
+      
     def GetListCtrl(self):
         return self
 
@@ -542,7 +541,7 @@ class AboutDialog(wx.Dialog):
         
         vbox = wx.BoxSizer(wx.VERTICAL)
 
-        title_text = "Python IOC Editor v0.9"
+        title_text = "Python IOC Editor v" + VERSION
         title_text_box = wx.StaticText(self, label=title_text)
         vbox.Add(title_text_box, 0, wx.ALIGN_CENTER | wx.ALL, 10)
 
@@ -965,7 +964,6 @@ class IOCTreeCtrl(wx.TreeCtrl):
     def clear_tree(self):        
         if self.root_item_id != None:
             self.DeleteAllItems()
-  
 
     def save_branch(self,node, depth = 0):
         item = {}
@@ -983,7 +981,6 @@ class IOCTreeCtrl(wx.TreeCtrl):
             return [item]
         else:
             return item
-
 
     def insert_branch(self, branch, dst_item_id, after_item_id=None, top_level=True):
         expanded_item_list = []
@@ -1031,7 +1028,6 @@ class IOCTreeCtrl(wx.TreeCtrl):
         if indicator_element.get('id') in param_list:
             self.SetItemImage(indicator_id, 0, wx.TreeItemIcon_Normal)
                 
-
     def update(self, current_ioc):
         if current_ioc != None:
             self.init_tree(current_ioc.criteria, current_ioc.parameters)
@@ -1541,14 +1537,14 @@ class PyIOCe(wx.Frame):
 
         self.ioc_metadata_panel = IOCMetadataPanel(hsplitter)
 
-        self.ioc_notebook_panel = IOCNotebook(hsplitter)
+        self.ioc_notebook = IOCNotebook(hsplitter)
 
-        self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.on_page_changing, self.ioc_notebook_panel)
+        self.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGING, self.on_page_changing, self.ioc_notebook)
 
-        self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.on_indicator_begin_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
-        self.Bind(wx.EVT_TREE_END_DRAG, self.on_indicator_end_drag, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
-        self.Bind(wx.EVT_TREE_SEL_CHANGED, self.on_indicator_select, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
-        self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_indicator_activated, self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_BEGIN_DRAG, self.on_indicator_begin_drag, self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_END_DRAG, self.on_indicator_end_drag, self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_SEL_CHANGED, self.on_indicator_select, self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl)
+        self.Bind(wx.EVT_TREE_ITEM_ACTIVATED, self.on_indicator_activated, self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl)
         self.Bind(wx.EVT_CHAR_HOOK, self.on_esc)
 
         self.Bind(wx.EVT_TEXT, self.on_author_input, self.ioc_metadata_panel.ioc_author_view)
@@ -1561,7 +1557,7 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_link_activated, self.ioc_metadata_panel.links_list_ctrl)
 
         vsplitter.SplitVertically(self.ioc_list_panel, hsplitter)
-        hsplitter.SplitHorizontally(self.ioc_metadata_panel, self.ioc_notebook_panel)
+        hsplitter.SplitHorizontally(self.ioc_metadata_panel, self.ioc_notebook)
 
     def update_status_bar(self, status_text="No IOC Selected"):
         self.statusbar.SetStatusText(status_text)
@@ -1579,7 +1575,7 @@ class PyIOCe(wx.Frame):
         return selected_dir
 
     def open_indicator_dialog(self, current_indicator_id):
-        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        current_indicator_element = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         new_indicator_element = copy.deepcopy(current_indicator_element)
 
         indicator_dialog = IndicatorDialog(self, element=new_indicator_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms)
@@ -1590,7 +1586,7 @@ class PyIOCe(wx.Frame):
             parent_element.insert(parent_element.index(current_indicator_element),new_indicator_element)
             parent_element.remove(current_indicator_element)
             current_indicator_element = new_indicator_element
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update_item(current_indicator_id, current_indicator_element, self.current_ioc.parameters)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.update_item(current_indicator_id, current_indicator_element, self.current_ioc.parameters)
 
         indicator_dialog.Destroy()
 
@@ -1715,37 +1711,37 @@ class PyIOCe(wx.Frame):
         self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
         
         self.ioc_metadata_panel.update(self.current_ioc)
-        self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
-        self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+        self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
+        self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
         self.update_status_bar(self.current_ioc_file)
 
-        self.current_indicator_id = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id
-        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        self.current_indicator_id = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.root_item_id
+        current_indicator_element = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         self.ioc_metadata_panel.Layout()
 
     def on_ioc_activated(self,event):
-        self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
+        self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
 
     def on_page_changing(self, event):
-        self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+        self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
 
     def on_indicator_select(self, event):
         self.current_indicator_id = event.GetItem()
 
     def on_indicator_activated(self, event):
-        if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
+        if self.current_indicator_id != self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
             self.open_indicator_dialog(self.current_indicator_id)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SelectItem(self.current_indicator_id)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
 
     def on_indicator_begin_drag(self, event):
-        if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
+        if self.current_indicator_id != self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
             self.current_indicator_id = item_id
             event.Allow()
 
     def on_indicator_end_drag(self, event):
-        ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
+        ioc_tree_ctrl = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl
         src_item_id = self.current_indicator_id
         dst_item_id = event.GetItem()
 
@@ -1785,28 +1781,28 @@ class PyIOCe(wx.Frame):
         if self.current_ioc != None:
             author = self.ioc_metadata_panel.ioc_author_view.GetValue()
             self.current_ioc.set_author(author)
-            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_name_input(self, event):
         if self.current_ioc != None:
             name = self.ioc_metadata_panel.ioc_name_view.GetValue()
             self.current_ioc.set_name(name)
-            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_desc_input(self, event):
         if self.current_ioc != None:
             desc = self.ioc_metadata_panel.ioc_desc_view.GetValue()
             self.current_ioc.set_desc(desc)
-            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_link_add(self, event):
         if self.current_ioc != None:
             self.ioc_metadata_panel.links_list_ctrl.add_link()
             self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
-            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_link_del(self, event):
@@ -1815,7 +1811,7 @@ class PyIOCe(wx.Frame):
             if link >= 0:
                 self.ioc_metadata_panel.links_list_ctrl.del_link(link)
                 self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
-                self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+                self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
                 self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_link_activated(self, event):
@@ -1823,11 +1819,11 @@ class PyIOCe(wx.Frame):
             link = self.ioc_metadata_panel.links_list_ctrl.GetFirstSelected()
             self.ioc_metadata_panel.links_list_ctrl.edit_link(link, self.current_ioc.version)
             self.ioc_metadata_panel.links_list_ctrl.reload(self.current_ioc.links)
-            self.ioc_notebook_panel.ioc_xml_page.update(self.current_ioc)
+            self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
             self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
 
     def on_case(self, event):
-        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        current_indicator_element = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         if current_indicator_element.tag == "IndicatorItem":
             if self.current_ioc.version != "1.0":
                 if current_indicator_element.get('preserve-case') == "true":
@@ -1836,10 +1832,10 @@ class PyIOCe(wx.Frame):
                     current_indicator_element.set('preserve-case', 'true') 
 
                 (label, color) = generate_label(current_indicator_element)
-                self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
+                self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
 
     def on_not(self, event):
-        current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        current_indicator_element = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         if current_indicator_element.tag == "IndicatorItem":
             if self.current_ioc.version == "1.0":
                 if current_indicator_element.get('condition') == "is":
@@ -1857,11 +1853,11 @@ class PyIOCe(wx.Frame):
                     current_indicator_element.set('negate', 'true')
 
             (label, color) = generate_label(current_indicator_element)
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemText(self.current_indicator_id, label)
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetItemText(self.current_indicator_id, label)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetItemTextColour(self.current_indicator_id, color)
 
     def on_and(self, event):
-        ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
+        ioc_tree_ctrl = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl
         new_indicator_element = ioc_et.make_Indicator_node("AND")
         current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
@@ -1874,7 +1870,7 @@ class PyIOCe(wx.Frame):
         ioc_tree_ctrl.Expand(self.current_indicator_id)
 
     def on_or(self, event):
-        ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
+        ioc_tree_ctrl = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl
         new_indicator_element = ioc_et.make_Indicator_node("OR")
         current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
  
@@ -1887,7 +1883,7 @@ class PyIOCe(wx.Frame):
         ioc_tree_ctrl.Expand(self.current_indicator_id)
 
     def on_insert(self, event):
-        ioc_tree_ctrl = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl
+        ioc_tree_ctrl = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl
         new_indicatoritem_element = ioc_et.make_IndicatorItem_node(context_type = self.preferences["default_context"])
         current_indicator_element = ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
         
@@ -1904,12 +1900,12 @@ class PyIOCe(wx.Frame):
         ioc_tree_ctrl.SetFocus()
 
     def on_delete(self, event):
-        if self.current_indicator_id != self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
-            current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        if self.current_indicator_id != self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.root_item_id:
+            current_indicator_element = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
 
             parent_element = current_indicator_element.getparent()
 
-            parent_id = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemParent(self.current_indicator_id)
+            parent_id = self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.GetItemParent(self.current_indicator_id)
 
             child_element = current_indicator_element
             child_id = self.current_indicator_id
@@ -1917,7 +1913,7 @@ class PyIOCe(wx.Frame):
             self.current_indicator_id = parent_id
             current_indicator_element = parent_element
             
-            self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.Delete(child_id)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.Delete(child_id)
 
             parent_element.remove(child_element)
 
@@ -1940,6 +1936,7 @@ class PyIOCe(wx.Frame):
 
 if __name__ == '__main__':
     BASE_DIR = "./"
+    VERSION = "0.9"
     app = wx.App()
 
     PyIOCe(None)
