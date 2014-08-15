@@ -1,47 +1,37 @@
-Python IOC Editor
-
-Copyright 2014 Yahoo
-Authored by Sean Gillespie
-Licensed under the Apache 2.0 license.
-Code and contents listed below are attributed with the copyright holder and
-license as follows:
-
-Copyright: Yahoo
-Author: Sean Gillespie
-License: Apache 2.0
---------------------------------------------------------
-pyioce.py  
-ioc.py
-images/and.png  
-images/case.png  
-images/delete.png  
-images/insert.png  
-images/land.png  
-images/lnot.png  
-images/lor.png  
-images/not.png  
-images/or.png
+Python IOC Editor v0.9
 
 
-Copyright: Mandiant
-Author: William Gibb
-License: Apache 2.0
---------------------------------------------------------
-ioc_et.py - Modifications by Sean Gillespie/Yahoo
+Description: 
+PyIOCe is an OpenIOC editor built using Python 2.7 and wxPython 3.0.0.0.  
+
+There are many systems for storing complete threat intelligence, but OpenIOC excels at manipulating that data into a reduced and 
+operationalized search method.  This can be used to build IOCs that describe broad threat behavior such as persistence mechanisms 
+or important forensic sources or it can be used to search for more narrowly identified threats during incident response to rapidly 
+scope a compromise across large enterprise networks. 
+
+This project is meant to expand ongoing efforts to broaden the use of OpenIOC with other systems such as Snort, GRR, Splunk, and Yara
+
+Required Python Modules:
+wxPython
+lxml
+
+Features:
+- Almost entirely keyboard driven
+- Support for opening and editing OpenIOC 1.0 and 1.1 IOCs simultaneously
+- Indicator Term management
+- Preferences for default IOC version, default IOC context, and default IOC author
+- IOC Cloning
+- Revert IOC Changes to last saved
+
+Roadmap:
+- Term Conversion Map management
+- Term Conversions to quickly change context types of IndicatorTerms based on the Conversion Map
+- Import IndicatorTerms from Intel sources such as CybOX, STIX, or CRITS
+- IOC Validation/Testing
+- Cut/Copy/Paste Support
+- More well defined Indicator Terms for GRR, Splunk, Yara, Snort, and other systems
 
 
-Icon Pack: Must Have
-Designer: VisualPharm (Ivan Boyko)
-License: Creative Commons Attribution (by) 
---------------------------------------------------------
-images/check.png 		http://findicons.com/icon/51032/check
 
-
-Icon Pack: GiNUX
-Designer: Asher
-License: Creative Commons Attribution (by) 
---------------------------------------------------------
-images/open.png 		http://findicons.com/icon/68711/opened
-images/save.png 		http://findicons.com/icon/68731/floppy - Modifications by Sean Gillespie/Yahoo
-images/saveall.png 		http://findicons.com/icon/68731/floppy - Modifications by Sean Gillespie/Yahoo
-images/new.png 			http://findicons.com/icon/68749/default - Modifications by Sean Gillespie/Yahoo
+Bug reports, questions, comments, requests:
+seagill at yahoo-inc dot com
