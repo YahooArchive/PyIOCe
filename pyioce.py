@@ -1402,7 +1402,7 @@ class IOCXMLPage(sp.ScrolledPanel):
             xml_view_string = et.tostring(current_ioc.working_xml, encoding="utf-8", xml_declaration=True, pretty_print = True)
         else:
             xml_view_string = "No IOC Selected"
-        self.ioc_xml_view.SetLabel(xml_view_string)
+        self.ioc_xml_view.SetLabel(xml_view_string.decode('utf-8'))
         self.SetupScrolling()
 
 
