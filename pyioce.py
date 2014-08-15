@@ -1721,6 +1721,7 @@ class PyIOCe(wx.Frame):
 
         self.current_indicator_id = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.root_item_id
         current_indicator_element = self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.GetItemData(self.current_indicator_id).GetData()
+        self.ioc_metadata_panel.Layout()
 
     def on_ioc_activated(self,event):
         self.ioc_notebook_panel.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
