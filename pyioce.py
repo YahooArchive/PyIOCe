@@ -388,7 +388,7 @@ class PreferencesDialog(wx.Dialog):
         self.author_box = wx.TextCtrl(self, size=(200,-1))
         self.author_box.SetValue(self.default_author)
 
-        fgs.AddMany([(version_label, 0, wx.ALIGN_LEFT), (self.version_box,0, wx.ALIGN_RIGHT),(context_label, 0, wx.ALIGN_LEFT), (self.context_box,0, wx.ALIGN_RIGHT),(author_label, 0, wx.ALIGN_LEFT), (self.author_box,0, wx.ALIGN_RIGHT)])
+        fgs.AddMany([(version_label, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALIGN_LEFT), (self.version_box,0, wx.ALIGN_CENTER_VERTICAL |wx.ALIGN_RIGHT),(context_label, 0, wx.ALIGN_CENTER_VERTICAL |wx.ALIGN_LEFT), (self.context_box,0, wx.ALIGN_CENTER_VERTICAL |wx.ALIGN_RIGHT),(author_label, 0, wx.ALIGN_CENTER_VERTICAL |wx.ALIGN_LEFT), (self.author_box,0, wx.ALIGN_CENTER_VERTICAL |wx.ALIGN_RIGHT)])
 
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
         vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
@@ -432,7 +432,10 @@ class ParamDialog(wx.Dialog):
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         
-        fgs = wx.FlexGridSizer(1,2,0,0)
+        name_label = wx.StaticText(self, label="Name")
+        value_label = wx.StaticText(self, label="Value")
+
+        fgs = wx.FlexGridSizer(2,2,0,5)
   
         param_name = self.param.get('name')
         param_value = self.param.find('value').text
@@ -440,10 +443,10 @@ class ParamDialog(wx.Dialog):
         self.name_box = wx.TextCtrl(self)
         self.name_box.SetValue(param_name)
 
-        self.value_box = wx.TextCtrl(self)
+        self.value_box = wx.TextCtrl(self, size=(200,-1))
         self.value_box.SetValue(param_value)
 
-        fgs.AddMany([(self.name_box, 0), (self.value_box,0, wx.EXPAND)])
+        fgs.AddMany([(name_label, 0), (value_label,0, wx.EXPAND),(self.name_box, 0), (self.value_box,0, wx.EXPAND)])
 
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
         vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
@@ -485,21 +488,26 @@ class LinkDialog(wx.Dialog):
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         
+        rel_label = wx.StaticText(self, label="Key")
+        value_label = wx.StaticText(self, label="Value")
+
+
         self.rel_box = AutoComboBox(self, choices = rel_list)
         self.rel_box.SetValue(self.link_rel)
 
-        self.value_box = wx.TextCtrl(self)
+        self.value_box = wx.TextCtrl(self, size=(200,-1))
         self.value_box.SetValue(self.link_value)
 
         if version == "1.0":
-            fgs = wx.FlexGridSizer(1,2,0,0)
-            fgs.AddMany([(self.rel_box, 0, wx.EXPAND), (self.value_box,0)])
+            fgs = wx.FlexGridSizer(2,2,0,5)
+            fgs.AddMany([(rel_label, 0, wx.ALIGN_CENTER_VERTICAL), (value_label,0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL),(self.rel_box, 0, wx.ALIGN_CENTER_VERTICAL), (self.value_box,0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)])
         else:
-            fgs = wx.FlexGridSizer(1,3,0,0)
-            self.href_box = wx.TextCtrl(self)
+            fgs = wx.FlexGridSizer(2,3,0,5)
+            href_label = wx.StaticText(self, label="Href")
+            self.href_box = wx.TextCtrl(self, size=(200,-1))
             self.href_box.SetValue(self.link_href)
 
-            fgs.AddMany([(self.rel_box, 0, wx.EXPAND), (self.value_box,0), (self.href_box, 0)])
+            fgs.AddMany([(rel_label, 0, wx.ALIGN_CENTER_VERTICAL), (value_label,0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL), (href_label, 0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL),(self.rel_box, 0, wx.ALIGN_CENTER_VERTICAL), (self.value_box,0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL), (self.href_box, 0, wx.EXPAND | wx.ALIGN_CENTER_VERTICAL)])
             self.Bind(wx.EVT_TEXT, self.on_href_change, self.href_box)
 
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
@@ -593,10 +601,23 @@ class HotkeyDialog(wx.Dialog):
 
 class ConvertDialog(wx.Dialog):
     def __init__(self, parent):
-        wx.Dialog.__init__(self, parent, -1, title="Convert IOC", style=wx.DEFAULT_DIALOG_STYLE)
+        wx.Dialog.__init__(self, parent, -1, title="Convert Indicator Terms", style=wx.DEFAULT_DIALOG_STYLE)
         
-        vbox = wx.BoxSizer(wx.VERTICAL)
+        context_type_list = parent.indicator_terms.keys()
+        self.convert_context = parent.preferences["default_context"]
 
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        fgs = wx.FlexGridSizer(1,2,0,5)
+
+        context_label = wx.StaticText(self, label="Convert to")
+        self.context_box = wx.ComboBox(self, choices = context_type_list, style=wx.CB_READONLY)
+        self.context_box.SetValue(self.convert_context)
+        self.Bind(wx.EVT_COMBOBOX, self.on_context_change, self.context_box)
+
+        fgs.AddMany([(context_label, 0, wx.ALIGN_LEFT | wx.ALIGN_CENTER_VERTICAL), (self.context_box,0, wx.ALIGN_RIGHT | wx.ALIGN_CENTER_VERTICAL)])
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -612,6 +633,9 @@ class ConvertDialog(wx.Dialog):
 
         self.SetSizer(vbox)
         vbox.Fit(self)
+
+    def on_context_change(self, event):
+        self.convert_context = self.context_box.GetValue()
 
 
 class AutoComboBox(wx.ComboBox):
@@ -731,7 +755,7 @@ class IndicatorDialog(wx.Dialog):
             self.content_box = wx.TextCtrl(self, size=(300,-1))
             self.content_box.SetValue(content)
 
-            fgs.AddMany([(self.context_type_box, 0, wx.EXPAND), (self.search_box,1), (self.condition_box, 0), (self.content_box, 1)])
+            fgs.AddMany([(self.context_type_box, 0, wx.ALIGN_CENTER_VERTICAL |wx.EXPAND), (self.search_box,1, wx.ALIGN_CENTER_VERTICAL), (self.condition_box, 0, wx.ALIGN_CENTER_VERTICAL), (self.content_box, 1, wx.ALIGN_CENTER_VERTICAL)])
             hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP, border=15)
             vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
 
@@ -1070,6 +1094,8 @@ class IOCTreeCtrl(wx.TreeCtrl):
             self.SetBackgroundColour("#ccffcc") #FIXME - Valdiation 
         else:
             self.clear_tree()
+            self.current_indicator_id = None
+            self.root_item_id = None
 
     def on_indicator_select(self, event):
         self.current_indicator_id = event.GetItem()
@@ -1224,6 +1250,11 @@ class IOCTreeCtrl(wx.TreeCtrl):
             self.Delete(child_id)
 
             parent_element.remove(child_element)
+
+    def convert_terms(self, convert_context):
+        if self.current_indicator_id != None:                
+            self.SetFocus() #FIXME
+        
 
 
 class IOCListCtrl(wx.ListCtrl, ColumnSorterMixin):
@@ -1664,6 +1695,10 @@ class PyIOCe(wx.Frame):
     def __init__(self, *args, **kwargs):
         super(PyIOCe, self).__init__(*args, **kwargs) 
         
+        self.ioc_list = IOCList()
+        self.current_ioc = None
+        self.current_ioc_file = None
+
         self.preferences = {}
 
         try:
@@ -1675,8 +1710,7 @@ class PyIOCe(wx.Frame):
             self.preferences["default_context"] = "mir"
             self.preferences["default_author"] = "PyIOCe"
 
-        self.ioc_list = IOCList()
-        self.current_ioc = None
+
 
         try:
             indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','r')
@@ -1807,7 +1841,11 @@ class PyIOCe(wx.Frame):
         self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.update(self.current_ioc)
         self.ioc_notebook.ioc_xml_page.update(self.current_ioc)
         self.ioc_list_panel.ioc_list_ctrl.refresh(self.ioc_list)
-        self.statusbar.SetStatusText(self.current_ioc_file)
+        if self.current_ioc_file != None:
+            self.statusbar.SetStatusText(self.current_ioc_file)
+        else:
+            self.statusbar.SetStatusText("No IOC Selected")
+
         self.ioc_metadata_panel.Layout()
 
     def select_dir(self):
@@ -1833,6 +1871,7 @@ class PyIOCe(wx.Frame):
             self.ioc_list_panel.ioc_list_ctrl.Select(0, on=True)
         else:
             self.current_ioc = None
+            self.current_ioc_file = None
             self.update()
 
     def on_preferences(self, event):
@@ -1893,6 +1932,7 @@ class PyIOCe(wx.Frame):
                 self.ioc_list_panel.ioc_list_ctrl.Select(0, on=True)
             else:
                 self.current_ioc = None
+                self.current_ioc_file = None
                 self.update()
 
             self.ioc_list_panel.ioc_list_ctrl.SetFocus()            
@@ -1933,9 +1973,7 @@ class PyIOCe(wx.Frame):
     def on_ioc_select(self, event):
         ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetItemData(event.m_itemIndex)
         self.current_ioc_file = self.ioc_list_panel.ioc_list_ctrl.itemDataMap[ioc_index][3]
-        
         self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
-        
         self.update()
 
     def on_ioc_activated(self,event):
@@ -1958,18 +1996,15 @@ class PyIOCe(wx.Frame):
             self.update()
 
     def on_convert(self, event):
-        # convert_dialog = ConvertDialog(self)
-        # convert_dialog.CenterOnScreen()
-    
-        # if convert_dialog.ShowModal() != wx.ID_OK:
-        #     status = False
-        # else:
-        #     status = True
-
-        # convert_dialog.Destroy()
-
-        # return status
-        pass
+        if self.current_ioc != None:
+            convert_dialog = ConvertDialog(self)
+            convert_dialog.CenterOnScreen()
+        
+            if convert_dialog.ShowModal() == wx.ID_OK:
+                convert_context = convert_dialog.convert_context
+                self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.convert_terms(convert_context)
+            
+            convert_dialog.Destroy()
 
 if __name__ == '__main__':
     BASE_DIR = "./"
