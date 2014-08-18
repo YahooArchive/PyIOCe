@@ -641,10 +641,13 @@ class AutoComboBox(wx.ComboBox):
 
             if self.autocomplete:
                 replace_text = current_text
+
                 if len(matches) > 0:
                     replace_text = os.path.commonprefix(matches)
 
                 if replace_text != current_text:
+                    if len(current_text) > len(replace_text):
+                        replace_text = current_text
                     self.autocomplete = False
                     self.SetItems(matches)
                     self.SetValue(replace_text)
