@@ -174,14 +174,14 @@ def make_Indicator_node(operator, id = None):
 
 def make_IndicatorItem_node(condition="is", 
                             document="Undefined", 
-                            search="SearchTerm", 
+                            search="", 
                             content_type="Undefined", 
-                            content="Undefined", 
+                            content="", 
                             preserve_case = False,
                             negate = False,
                             context_type = 'mir', 
                             id = None,
-                            version = "1.1"): #FIXME
+                            version = "1.1"):
     '''
     This makes a IndicatorItem element.  This contains the actual threat
     intelligence in the IOC.
