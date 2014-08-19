@@ -906,7 +906,7 @@ class PyIOCeEditMenu(wx.Menu):
         self.Append(wx.ID_COPY, '&Copy')
         self.Append(wx.ID_PASTE, '&Paste')
         self.Append(wx.ID_REVERT, '&Revert')
-        self.Append(wx.ID_REPLACE, 'Con&vert')
+        self.Append(wx.ID_REPLACE, 'Conver&t')
         self.Append(wx.ID_DUPLICATE, 'C&lone')
 
 
@@ -1800,10 +1800,10 @@ class PyIOCe(wx.Frame):
             (wx.ACCEL_CTRL, ord('s'), wx.ID_SAVE),
             (wx.ACCEL_CTRL, ord('a'), wx.ID_SAVEAS),
             (wx.ACCEL_CTRL, ord('c'), wx.ID_COPY),
-            (wx.ACCEL_CTRL, ord('p'), wx.ID_PASTE),
+            (wx.ACCEL_CTRL, ord('v'), wx.ID_PASTE),
             (wx.ACCEL_CTRL, ord('x'), wx.ID_CUT),
             (wx.ACCEL_CTRL, ord('r'), wx.ID_REVERT),
-            (wx.ACCEL_CTRL, ord('v'), wx.ID_REPLACE),
+            (wx.ACCEL_CTRL, ord('t'), wx.ID_REPLACE),
             (wx.ACCEL_CTRL, ord('l'), wx.ID_DUPLICATE)
             ])
 
@@ -1979,14 +1979,24 @@ class PyIOCe(wx.Frame):
     def on_ioc_activated(self,event):
         self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.SetFocus()
 
+
     def on_cut(self,event):
-        pass
+        if self.FindFocus() == self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl:
+            print "Override Cut"
+        else:
+            event.Skip()
 
     def on_copy(self,event):
-        pass
+        if self.FindFocus() == self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl:
+            print "Override Copy"
+        else:
+            event.Skip()
 
     def on_paste(self,event):
-        pass
+        if self.FindFocus() == self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl:
+            print "Override Paste"
+        else:
+            event.Skip()
 
     def on_revert(self, event):
         if self.current_ioc != None and self.current_ioc.orig_xml.tag != "New":
