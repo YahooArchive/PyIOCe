@@ -1,4 +1,4 @@
-Python IOC Editor v0.9.1
+Python IOC Editor v0.9.2
 
 
 Description: 
@@ -24,13 +24,13 @@ Features:
 - Preferences for default IOC version, default IOC context, and default IOC author
 - IOC Cloning
 - Revert IOC Changes to last saved
+- Cut/Copy/Paste & drag and drop for Indicator tree
 
 Roadmap:
 - Term Conversion Map management
 - Term Conversions to quickly change context types of IndicatorTerms based on the Conversion Map
 - Import IndicatorTerms from Intel sources such as CybOX, STIX, or CRITS
 - IOC Validation/Testing
-- Cut/Copy/Paste Support
 - More well defined Indicator Terms for GRR, Splunk, Yara, Snort, and other systems
 
 
