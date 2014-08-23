@@ -1917,7 +1917,10 @@ class PyIOCe(wx.Frame):
             preferences_file.write(json.dumps(self.preferences))
             preferences_file.close()
 
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
+
         preferences_dialog.Destroy()
+
 
     def on_terms(self, event):
         terms_dialog = TermsDialog(self)
@@ -1928,6 +1931,8 @@ class PyIOCe(wx.Frame):
             indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','w')
             indicator_terms_file.write(json.dumps(self.indicator_terms))
             indicator_terms_file.close()
+
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
 
         terms_dialog.Destroy()
         
