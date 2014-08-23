@@ -1,4 +1,4 @@
-Python IOC Editor v0.9.2
+Python IOC Editor v0.9.3
 
 
 Description: 
