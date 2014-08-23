@@ -38,11 +38,28 @@ def generate_label(element):
         context = element.find('Context')
         content = element.find('Content')
         
-        condition = element.get('condition')
-        search_type = context.get('type')
-        search_path = context.get('search')
-        search_text = content.text
-        
+        # condition = element.get('condition')
+        # search_type = context.get('type')
+        # search_path = context.get('search')
+        # search_text = content.text
+
+        condition = ""
+        search_type = ""
+        search_path = ""
+        search_text = ""
+
+        if element.get('condition'):
+            condition = element.get('condition')
+
+        if context.get('type'):
+            search_type = context.get('type')
+
+        if context.get('search'):
+            search_path = context.get('search')
+
+        if content.text:
+            search_text = content.text
+
         if "preserve-case" in element.keys():
             if element.get('preserve-case') == "true":
                 color = "#009900"
