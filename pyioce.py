@@ -1828,7 +1828,7 @@ class PyIOCe(wx.Frame):
             (wx.ACCEL_CTRL, ord('n'), wx.ID_NEW),
             (wx.ACCEL_CTRL, ord('o'), wx.ID_OPEN),
             (wx.ACCEL_CTRL, ord('s'), wx.ID_SAVE),
-            (wx.ACCEL_CTRL, ord('a'), wx.ID_SAVEAS),
+            (wx.ACCEL_CTRL | wx.ACCEL_SHIFT, ord('s'), wx.ID_SAVEAS),
             (wx.ACCEL_CTRL, ord('c'), wx.ID_COPY),
             (wx.ACCEL_CTRL, ord('v'), wx.ID_PASTE),
             (wx.ACCEL_CTRL, ord('x'), wx.ID_CUT),
