@@ -981,8 +981,12 @@ class IOCTreeCtrl(wx.TreeCtrl):
 
   
     def set_config(self, preferences, indicator_terms):
-        self.preferences = preferences
+        #Use a temporary copy of preferences so that a failover default_context switch does not become permanent
+        self.preferences = copy.deepcopy(preferences)
         self.indicator_terms = indicator_terms
+        #Failover default_context if the current default_context is not in the current indicator_terms.  This is primarily for supporting the legacy MIR terms for OpenIOC 1.0
+        if self.preferences["default_context"] not in self.indicator_terms.keys():
+            self.preferences["default_context"] = self.indicator_terms.keys()[0]
 
     def is_descendent(self, dst_item_id, src_item_id):
         if dst_item_id == self.root_item_id:
@@ -1740,16 +1744,19 @@ class PyIOCe(wx.Frame):
             self.preferences["default_context"] = "mir"
             self.preferences["default_author"] = "PyIOCe"
 
-
-
         try:
-            indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','r')
+            indicator_terms_file = open(BASE_DIR + 'indicator_terms.current','r')
             self.indicator_terms = json.loads(indicator_terms_file.read())
             indicator_terms_file.close()
         except:
             indicator_terms_file = open(BASE_DIR + 'indicator_terms.default','r')
             self.indicator_terms = json.loads(indicator_terms_file.read())
             indicator_terms_file.close()
+
+        #For OpenIOC 1.0 indicators only support the legacy MIR terms so we prepare a static legacy list of terms for 1.0 IOCs
+        legacy_indicator_terms_file = open(BASE_DIR + 'indicator_terms.legacy','r')
+        self.legacy_indicator_terms = json.loads(legacy_indicator_terms_file.read())
+        legacy_indicator_terms_file.close()
 
         self.init_menubar()
         self.init_toolbar()
@@ -2009,6 +2016,12 @@ class PyIOCe(wx.Frame):
         ioc_index = self.ioc_list_panel.ioc_list_ctrl.GetItemData(event.m_itemIndex)
         self.current_ioc_file = self.ioc_list_panel.ioc_list_ctrl.itemDataMap[ioc_index][3]
         self.current_ioc = self.ioc_list.iocs[self.current_ioc_file]
+
+        #For OpenIOC 1.0 indicators only support the legacy MIR terms so switch to the limited list when handling 1.0 IOCs
+        if self.current_ioc.version == "1.0":
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.legacy_indicator_terms)
+        else:
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
         self.update()
 
     def on_ioc_activated(self,event):
