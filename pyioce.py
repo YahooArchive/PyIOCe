@@ -114,7 +114,7 @@ class ModParametersDialog(wx.Dialog):
         context_types = self.parameters.keys()
         self.context_list_ctrl.update(context_types)
         try:
-            self._list_ctrl.Select(0, on=True)
+            self.context_list_ctrl.Select(0, on=True)
         except:
             self.parameter_list_ctrl.update({})
 
@@ -193,7 +193,7 @@ class ModParametersDialog(wx.Dialog):
     def on_parameter_del(self, event):
         index = self.context_list_ctrl.GetItemData(self.current_context_id)
         current_context_type = self.context_list_ctrl.itemDataMap[index]
-        index = self.term_list_ctrl.GetItemData(self.current_parameter_id)
+        index = self.parameter_list_ctrl.GetItemData(self.current_parameter_id)
         current_parameter = self.parameter_list_ctrl.itemDataMap[index][0]
         self.parameter_list_ctrl.DeleteItem(self.current_parameter_id)
         self.parameter_list_ctrl.itemDataMap.pop(index)
