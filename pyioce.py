@@ -25,6 +25,340 @@ import copy
 import json
 import re
 
+class ModParametersDialog(wx.Dialog):
+    def __init__(self, parent):
+        wx.Dialog.__init__(self, parent, -1, title="Parameters", style=wx.DEFAULT_DIALOG_STYLE)
+
+        self.parameters = copy.deepcopy(parent.parameters)
+        
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(1,2,0,0)
+  
+        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.context_list_ctrl = ContextListCtrl(self, self.parameters.keys(),style=wx.LC_SINGLE_SEL|wx.LC_REPORT|wx.BORDER_SUNKEN)
+        if len(self.parameters.keys()) > 0:
+            self.context_list_ctrl.Select(0, on=True)
+        self.current_context_id = 0
+
+        hbox2.Add(self.context_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT, border=5)
+        hbox2_vbox = wx.BoxSizer(wx.VERTICAL)
+        addcontext_button = wx.Button(self, label='+', size=(25, 25))
+        hbox2_vbox.Add(addcontext_button)
+        delcontext_button = wx.Button(self, label='-', size=(25, 25))
+        hbox2_vbox.Add(delcontext_button)
+        hbox2.Add(hbox2_vbox)
+
+        hbox3 = wx.BoxSizer(wx.HORIZONTAL)
+
+        if len(self.parameters.keys()) > 0:
+            index = self.context_list_ctrl.GetItemData(self.current_context_id)
+            current_context_type = self.context_list_ctrl.itemDataMap[index]
+            self.parameter_list_ctrl = ParameterListCtrl(self,self.parameters[current_context_type])
+            self.parameter_list_ctrl.Select(0, on=True)
+        else:
+            self.parameter_list_ctrl = ParameterListCtrl(self, {})
+        self.current_parameter_id = 0
+
+        hbox3.Add(self.parameter_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT | wx.LEFT, border=5)
+        hbox3_vbox = wx.BoxSizer(wx.VERTICAL)
+        addparameter_button = wx.Button(self, label='+', size=(25, 25))
+        hbox3_vbox.Add(addparameter_button)
+        delparameter_button = wx.Button(self, label='-', size=(25, 25))
+        hbox3_vbox.Add(delparameter_button)
+        hbox3.Add(hbox3_vbox)
+
+        fgs.AddMany([(hbox2, 0), (hbox3,0, wx.EXPAND | wx.ALIGN_RIGHT)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+
+        reset_button = wx.Button(self, wx.ID_NO, label="Restore Defaults")
+        button_sizer.AddButton(reset_button)
+
+        import_button = wx.Button(self, wx.ID_CONTEXT_HELP, label="Import")
+        button_sizer.AddButton(import_button)
+
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+        self.Bind(wx.EVT_BUTTON, self.on_context_del, delcontext_button)
+        self.Bind(wx.EVT_BUTTON, self.on_context_add, addcontext_button)
+        self.Bind(wx.EVT_BUTTON, self.on_parameter_del, delparameter_button)
+        self.Bind(wx.EVT_BUTTON, self.on_parameter_add, addparameter_button)
+        self.Bind(wx.EVT_BUTTON, self.on_reset, reset_button)
+        self.Bind(wx.EVT_BUTTON, self.on_context_import, import_button)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_context_select, self.context_list_ctrl)
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_parameter_select, self.parameter_list_ctrl)
+        self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_parameter_activated, self.parameter_list_ctrl)
+    
+    def on_reset(self, event):
+        parameters_file = open(BASE_DIR + 'parameters.default','r')
+        self.parameters = json.loads(parameters_file.read())
+        parameters_file.close()
+        context_types = self.parameters.keys()
+        self.context_list_ctrl.update(context_types)
+        try:
+            self._list_ctrl.Select(0, on=True)
+        except:
+            self.parameter_list_ctrl.update({})
+
+    def on_context_add(self, event):
+        context_dialog = KeyDialog(self, "Context Type")
+        context_dialog.CenterOnScreen()
+    
+        if context_dialog.ShowModal() == wx.ID_OK:
+            new_context_type = context_dialog.key
+            if new_context_type != "" and new_context_type not in self.parameters.keys():
+                self.parameters[new_context_type] = {}
+                context_types = self.parameters.keys()
+                self.context_list_ctrl.update(context_types)
+
+        context_dialog.Destroy()
+
+    def on_context_del(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        self.context_list_ctrl.DeleteItem(self.current_context_id)
+        self.context_list_ctrl.itemDataMap.pop(index)
+        self.parameters.pop(current_context_type, None)
+        try:
+            self.context_list_ctrl.Select(0, on=True)
+        except:
+            self.parameter_list_ctrl.update({})
+
+    def on_context_import(self, event):
+
+        select_file_dialog = wx.FileDialog(self, "Choose a file:", style=wx.FD_DEFAULT_STYLE)
+
+        if select_file_dialog.ShowModal() == wx.ID_OK:
+            selected_file = select_file_dialog.GetPath()
+        else:
+            selected_file = None
+            
+        select_file_dialog.Destroy()
+
+        if selected_file != None:
+            import_file = open(selected_file,'r')
+            try:
+                import_data = json.loads(import_file.read()) #FIXME Validate proper format
+            except:
+                import_data = None
+            import_file.close()
+
+        if import_data != None:
+            for context in import_data.keys():
+                self.parameters[context] = copy.deepcopy(import_data[context])
+        
+            context_types = self.parameters.keys()
+            self.context_list_ctrl.update(context_types)
+            self.context_list_ctrl.Select(0, on=True)
+
+
+    def on_parameter_add(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        parameter_dialog = KeyDialog(self, "Parameter")
+        parameter_dialog.CenterOnScreen()
+    
+        if parameter_dialog.ShowModal() == wx.ID_OK:
+            new_parameter = parameter_dialog.key
+            if new_parameter != "" and new_parameter not in self.parameters[current_context_type].keys():
+                new_parameter_values = {}
+                new_parameter_values["value_type"] = "string"
+                new_parameter_values["last_modified"] = ioc_et.get_current_date()
+
+                self.parameters[current_context_type][new_parameter] = new_parameter_values
+
+                current_parameters = self.parameters[current_context_type]
+                self.parameter_list_ctrl.update(current_parameters)
+
+        parameter_dialog.Destroy()
+
+    def on_parameter_del(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        index = self.term_list_ctrl.GetItemData(self.current_parameter_id)
+        current_parameter = self.parameter_list_ctrl.itemDataMap[index][0]
+        self.parameter_list_ctrl.DeleteItem(self.current_parameter_id)
+        self.parameter_list_ctrl.itemDataMap.pop(index)
+        self.parameters[current_context_type].pop(current_parameter, None)
+
+    def on_context_select(self, event):
+        self.current_context_id = event.m_itemIndex
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+        current_parameters = self.parameters[current_context_type]
+        self.parameter_list_ctrl.update(current_parameters)
+
+    def on_parameter_select(self, event):
+        self.current_parameter_id = event.m_itemIndex
+
+    def on_parameter_activated(self, event):
+        index = self.context_list_ctrl.GetItemData(self.current_context_id)
+        current_context_type = self.context_list_ctrl.itemDataMap[index]
+
+        index = self.parameter_list_ctrl.GetItemData(self.current_parameter_id)
+        current_parameter = self.parameter_list_ctrl.itemDataMap[index][0]
+
+        current_parameter_values = self.parameters[current_context_type][current_parameter]
+
+        parameter_dialog = ParameterDialog(self, current_parameter_values)
+        parameter_dialog.CenterOnScreen()
+    
+        if parameter_dialog.ShowModal() == wx.ID_OK:
+            value_type = parameter_dialog.value_type
+            last_modified = ioc_et.get_current_date()
+
+            if value_type != current_parameter_values["value_type"]:
+                new_parameter_values = {}
+                new_parameter_values["value_type"] = value_type
+                new_parameter_values["last_modified"] = last_modified
+
+                self.parameters[current_context_type][current_parameter] = new_parameter_values
+
+                self.parameter_list_ctrl.itemDataMap[index] = (current_parameter, value_type)
+                self.parameter_list_ctrl.SetStringItem(self.current_parameter_id, 1, " " + value_type)
+
+        parameter_dialog.Destroy()
+        current_terms = self.parameters[current_context_type]
+        self.parameter_list_ctrl.update(current_terms)
+
+
+class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent, current_parameters):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_SINGLE_SEL|wx.LC_REPORT|wx.BORDER_SUNKEN)
+        ColumnSorterMixin.__init__(self, 3)
+
+        self.InsertColumn(0, 'Name', width=200)
+        self.InsertColumn(1, 'Value Type', width=150)
+        self.InsertColumn(2, 'Last Modified', width=180)
+
+        self.update(current_parameters)
+      
+    def GetListCtrl(self):
+        return self
+
+    def update(self, current_parameters):
+        self.DeleteAllItems()
+        self.itemDataMap = {}
+
+        for parameter in sorted(current_parameters.keys()):
+            index = len(self.itemDataMap)
+
+            parameter_name = parameter
+            value_type = current_parameters[parameter]["value_type"]
+            last_modified = current_parameters[parameter]["last_modified"]
+
+            self.itemDataMap[index] = (parameter, value_type, last_modified)
+
+            self.InsertStringItem(index, " " + parameter_name)
+            self.SetStringItem(index, 1, " " + value_type)
+            self.SetStringItem(index, 2, " " + last_modified)
+            self.SetItemData(index, index)
+
+class ParameterDialog(wx.Dialog):
+    def __init__(self, parent, current_parameters):
+        wx.Dialog.__init__(self, parent, -1, title="Edit Parameter", style=wx.DEFAULT_DIALOG_STYLE)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        fgs = wx.FlexGridSizer(1,2,0,0)
+  
+        self.value_type = current_parameters["value_type"]
+
+        value_label = wx.StaticText(self, label="Value Type: ")
+        self.value_type_box = wx.TextCtrl(self)
+        self.value_type_box.SetValue(self.value_type)
+
+        fgs.AddMany([(value_label,0, wx.EXPAND),(self.value_type_box,0, wx.EXPAND)])
+
+        hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
+        vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
+
+        self.Bind(wx.EVT_TEXT, self.on_value_type_change, self.value_type_box)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK)
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+    def on_value_type_change(self, event):
+        self.value_type = self.value_type_box.GetValue()
+
+
+class ExportDialog(wx.Dialog):
+    def __init__(self, parent, context_types):
+        wx.Dialog.__init__(self, parent, -1, title="Export Data", style=wx.DEFAULT_DIALOG_STYLE)
+        
+        self.selected_contexts = []
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+        hbox1 = wx.BoxSizer(wx.HORIZONTAL)
+
+        self.context_list_ctrl = ContextListCtrl(self, context_types)
+        
+        hbox1.Add(self.context_list_ctrl, flag= wx.TOP | wx.LEFT | wx.RIGHT, border=10)
+        vbox.Add(hbox1, flag= wx.LEFT | wx.RIGHT, border=25)
+
+        button_sizer = wx.StdDialogButtonSizer()
+
+        ok_button = wx.Button(self, wx.ID_OK, label="Export")
+        ok_button.SetDefault()
+        button_sizer.AddButton(ok_button)
+
+        cancel_button = wx.Button(self, wx.ID_CANCEL)
+        button_sizer.AddButton(cancel_button)
+
+        button_sizer.Realize()
+
+        vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
+
+        self.SetSizer(vbox)
+        vbox.Fit(self)
+
+        self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_context_select, self.context_list_ctrl)
+        self.Bind(wx.EVT_LIST_ITEM_DESELECTED, self.on_context_select, self.context_list_ctrl)
+
+    def on_context_select(self, event):
+        self.selected_contexts = []
+        selected_items = []
+        selected_count = self.context_list_ctrl.GetSelectedItemCount()
+        if selected_count > 0:
+            selected_items.append(self.context_list_ctrl.GetFirstSelected())
+            if selected_count > 1:
+                for i in xrange(selected_count - 1):
+                    selected_items.append(self.context_list_ctrl.GetNextSelected(selected_items[i]))
+            for item in selected_items:
+                index = self.context_list_ctrl.GetItemData(item)
+                self.selected_contexts.append(self.context_list_ctrl.itemDataMap[index])
+
 class TermDialog(wx.Dialog):
     def __init__(self, parent, current_term_values):
         wx.Dialog.__init__(self, parent, -1, title="Edit Term", style=wx.DEFAULT_DIALOG_STYLE)
@@ -32,8 +366,10 @@ class TermDialog(wx.Dialog):
         vbox = wx.BoxSizer(wx.VERTICAL)
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
         
-        fgs = wx.FlexGridSizer(1,2,0,0)
-  
+        fgs = wx.FlexGridSizer(2,2,0,0)
+        
+        context_label = wx.StaticText(self, label="Context Doc: ")
+        content_label = wx.StaticText(self, label="Content Type: ")
         self.context_doc = current_term_values["context_doc"]
         self.content_type = current_term_values["content_type"]
 
@@ -43,7 +379,7 @@ class TermDialog(wx.Dialog):
         self.content_type_box = wx.TextCtrl(self)
         self.content_type_box.SetValue(self.content_type)
 
-        fgs.AddMany([(self.context_doc_box, 0), (self.content_type_box,0, wx.EXPAND)])
+        fgs.AddMany([(context_label, 0) ,(self.context_doc_box, 0),(content_label, 0), (self.content_type_box,0, wx.EXPAND)])
 
         hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP , border=10)
         vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
@@ -111,13 +447,11 @@ class KeyDialog(wx.Dialog):
 
 
 class ContextListCtrl(wx.ListCtrl, ColumnSorterMixin):
-    def __init__(self, parent):
-        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+    def __init__(self, parent, context_types, style=wx.LC_REPORT|wx.BORDER_SUNKEN):
+        wx.ListCtrl.__init__(self, parent, -1, style=style)
         ColumnSorterMixin.__init__(self, 3)
 
-        context_types = parent.indicator_terms.keys()
-
-        self.InsertColumn(0, 'Context Type', width=85)
+        self.InsertColumn(0, 'Context Type', width=150)
         self.update(context_types)
 
     def GetListCtrl(self):
@@ -138,14 +472,9 @@ class ContextListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
 
 class TermListCtrl(wx.ListCtrl, ColumnSorterMixin):
-    def __init__(self, parent):
-        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
+    def __init__(self, parent, current_terms):
+        wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_SINGLE_SEL|wx.LC_REPORT|wx.BORDER_SUNKEN)
         ColumnSorterMixin.__init__(self, 3)
-
-        index = parent.context_list_ctrl.GetItemData(parent.current_context_id)
-        current_context_type = parent.context_list_ctrl.itemDataMap[index]
-
-        current_terms = parent.indicator_terms[current_context_type]
 
         self.InsertColumn(0, 'Search Term', width=350)
         self.InsertColumn(1, 'Context Document', width=150)
@@ -179,7 +508,7 @@ class TermListCtrl(wx.ListCtrl, ColumnSorterMixin):
             self.SetItemData(index, index)
 
 
-class TermsDialog(wx.Dialog):
+class ModTermsDialog(wx.Dialog):
     def __init__(self, parent):
         wx.Dialog.__init__(self, parent, -1, title="Indicator Terms", style=wx.DEFAULT_DIALOG_STYLE)
 
@@ -192,10 +521,13 @@ class TermsDialog(wx.Dialog):
   
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.context_list_ctrl = ContextListCtrl(self)
+        self.context_list_ctrl = ContextListCtrl(self, self.indicator_terms.keys(),style=wx.LC_SINGLE_SEL|wx.LC_REPORT|wx.BORDER_SUNKEN)
+        if len(self.indicator_terms.keys()) > 0:
+            self.context_list_ctrl.Select(0, on=True)
+        self.current_context_id = 0
+
+
         hbox2.Add(self.context_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT, border=5)
-
-
         hbox2_vbox = wx.BoxSizer(wx.VERTICAL)
         addcontext_button = wx.Button(self, label='+', size=(25, 25))
         hbox2_vbox.Add(addcontext_button)
@@ -203,15 +535,18 @@ class TermsDialog(wx.Dialog):
         hbox2_vbox.Add(delcontext_button)
         hbox2.Add(hbox2_vbox)
 
-        self.context_list_ctrl.Select(0, on=True)
-        self.current_context_id = 0
-
         hbox3 = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.term_list_ctrl = TermListCtrl(self)
-        hbox3.Add(self.term_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT, border=5)
+        if len(self.indicator_terms.keys()) > 0:
+            index = self.context_list_ctrl.GetItemData(self.current_context_id)
+            current_context_type = self.context_list_ctrl.itemDataMap[index]
+            self.term_list_ctrl = TermListCtrl(self,self.indicator_terms[current_context_type])
+            self.term_list_ctrl.Select(0, on=True)
+        else:
+            self.term_list_ctrl = TermListCtrl(self,{})
+        self.current_term_id = 0
 
-
+        hbox3.Add(self.term_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT | wx.LEFT, border=5)
         hbox3_vbox = wx.BoxSizer(wx.VERTICAL)
         addterm_button = wx.Button(self, label='+', size=(25, 25))
         hbox3_vbox.Add(addterm_button)
@@ -238,6 +573,9 @@ class TermsDialog(wx.Dialog):
         reset_button = wx.Button(self, wx.ID_NO, label="Restore Defaults")
         button_sizer.AddButton(reset_button)
 
+        import_button = wx.Button(self, wx.ID_CONTEXT_HELP, label="Import")
+        button_sizer.AddButton(import_button)
+
         button_sizer.Realize()
 
         vbox.Add(button_sizer, 0, wx.ALIGN_CENTER_VERTICAL|wx.ALIGN_RIGHT| wx.ALL, 5)
@@ -250,6 +588,7 @@ class TermsDialog(wx.Dialog):
         self.Bind(wx.EVT_BUTTON, self.on_term_del, delterm_button)
         self.Bind(wx.EVT_BUTTON, self.on_term_add, addterm_button)
         self.Bind(wx.EVT_BUTTON, self.on_reset, reset_button)
+        self.Bind(wx.EVT_BUTTON, self.on_context_import, import_button)
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_context_select, self.context_list_ctrl)
         self.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_term_select, self.term_list_ctrl)
         self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_term_activated, self.term_list_ctrl)
@@ -288,6 +627,33 @@ class TermsDialog(wx.Dialog):
             self.context_list_ctrl.Select(0, on=True)
         except:
             self.term_list_ctrl.update({})
+
+    def on_context_import(self, event):
+
+        select_file_dialog = wx.FileDialog(self, "Choose a file:", style=wx.FD_DEFAULT_STYLE)
+
+        if select_file_dialog.ShowModal() == wx.ID_OK:
+            selected_file = select_file_dialog.GetPath()
+        else:
+            selected_file = None
+            
+        select_file_dialog.Destroy()
+
+        if selected_file != None:
+            import_file = open(selected_file,'r')
+            try:
+                import_data = json.loads(import_file.read()) #FIXME Validate proper format
+            except:
+                import_data = None
+            import_file.close()
+
+        if import_data != None:
+            for context in import_data.keys():
+                self.indicator_terms[context] = copy.deepcopy(import_data[context])
+
+            context_types = self.indicator_terms.keys()
+            self.context_list_ctrl.update(context_types)
+            self.context_list_ctrl.Select(0, on=True)
 
     def on_term_add(self, event):
         index = self.context_list_ctrl.GetItemData(self.current_context_id)
@@ -346,18 +712,22 @@ class TermsDialog(wx.Dialog):
             content_type = term_dialog.content_type
             last_modified = ioc_et.get_current_date()
 
-            new_term_values = {}
-            new_term_values["context_doc"] = context_doc
-            new_term_values["content_type"] = content_type
-            new_term_values["last_modified"] = last_modified
+            if context_doc != current_term_values["context_doc"] or content_type != current_term_values["content_type"]:
 
-            self.indicator_terms[current_context_type][current_term] = new_term_values
+                new_term_values = {}
+                new_term_values["context_doc"] = context_doc
+                new_term_values["content_type"] = content_type
+                new_term_values["last_modified"] = last_modified
 
-            self.term_list_ctrl.itemDataMap[index] = (current_term, context_doc, content_type, last_modified)
-            self.term_list_ctrl.SetStringItem(self.current_term_id, 1, " " + context_doc)
-            self.term_list_ctrl.SetStringItem(self.current_term_id, 2, " " + content_type)
+                self.indicator_terms[current_context_type][current_term] = new_term_values
+
+                self.term_list_ctrl.itemDataMap[index] = (current_term, context_doc, content_type, last_modified)
+                self.term_list_ctrl.SetStringItem(self.current_term_id, 1, " " + context_doc)
+                self.term_list_ctrl.SetStringItem(self.current_term_id, 2, " " + content_type)
 
         term_dialog.Destroy()
+        current_terms = self.indicator_terms[current_context_type]
+        self.term_list_ctrl.update(current_terms)
 
 
 class PreferencesDialog(wx.Dialog):
@@ -424,9 +794,10 @@ class PreferencesDialog(wx.Dialog):
 
 
 class ParamDialog(wx.Dialog):
-    def __init__(self, parent, param):
+    def __init__(self, parent, param, param_list):
         wx.Dialog.__init__(self, parent, -1, title="Edit Parameter", style=wx.DEFAULT_DIALOG_STYLE)
 
+        self.param_list = param_list
         self.param = param
 
         vbox = wx.BoxSizer(wx.VERTICAL)
@@ -440,7 +811,7 @@ class ParamDialog(wx.Dialog):
         param_name = self.param.get('name')
         param_value = self.param.find('value').text
 
-        self.name_box = wx.TextCtrl(self)
+        self.name_box = AutoComboBox(self, choices = param_list)
         self.name_box.SetValue(param_name)
 
         self.value_box = wx.TextCtrl(self, size=(200,-1))
@@ -453,6 +824,7 @@ class ParamDialog(wx.Dialog):
 
         self.Bind(wx.EVT_TEXT, self.on_name_change, self.name_box)
         self.Bind(wx.EVT_TEXT, self.on_value_change, self.value_box)
+        self.Bind(wx.EVT_COMBOBOX, self.on_name_change, self.name_box)
 
         button_sizer = wx.StdDialogButtonSizer()
 
@@ -480,7 +852,7 @@ class LinkDialog(wx.Dialog):
     def __init__(self, parent, link_data, version):
         wx.Dialog.__init__(self, parent, -1, title="Edit Link", style=wx.DEFAULT_DIALOG_STYLE)
 
-        rel_list = ["link", "report", "related", "category", "capability", "dependency", "caveat", "family"]
+        rel_list = ["link", "report", "related", "category", "capability", "dependency", "caveat", "family"]#FIXME
 
         self.link_rel, self.link_value, self.link_href = link_data
 
@@ -689,13 +1061,12 @@ class AutoComboBox(wx.ComboBox):
 
 
 class IndicatorDialog(wx.Dialog):
-    def __init__(self, parent, element, current_ioc, indicator_terms):
+    def __init__(self, parent, element, current_ioc, indicator_terms, parameters):
         wx.Dialog.__init__(self, parent, -1, title="Edit Indicator", style=wx.DEFAULT_DIALOG_STYLE)
         
-        self.current_ioc = current_ioc
-
         self.element = element
         self.indicator_terms = indicator_terms
+        self.parameters = parameters
         indicator_uuid = self.element.attrib['id']
 
         if self.element.tag == "Indicator":
@@ -733,9 +1104,9 @@ class IndicatorDialog(wx.Dialog):
 
             context_type_list = list(set(indicator_terms.keys() + [context_type]))
 
-            if self.current_ioc.version == "1.0":
+            if current_ioc.version == "1.0":
                 condition_list = ['is', 'isnot', 'contains', 'containsnot']
-            elif self.current_ioc.version == "1.1":
+            elif current_ioc.version == "1.1":
                 condition_list = ['is', 'contains', 'matches', 'starts-with', 'ends-with', 'greater-than', 'less-than']
 
             self.SetTitle("IndicatorItem")
@@ -759,7 +1130,7 @@ class IndicatorDialog(wx.Dialog):
             hbox1.Add(fgs, proportion = 1, flag = wx.EXPAND | wx.LEFT| wx.RIGHT | wx.TOP, border=15)
             vbox.Add(hbox1, flag=wx.EXPAND| wx.ALIGN_CENTER)
 
-            if self.current_ioc.version != "1.0":
+            if current_ioc.version != "1.0":
                 hbox2 = wx.BoxSizer(wx.HORIZONTAL)
                 gs = wx.GridSizer(1,2,0,0)
                 negate_box = wx.CheckBox(self, -1, "Negate")
@@ -784,18 +1155,18 @@ class IndicatorDialog(wx.Dialog):
             self.Bind(wx.EVT_COMBOBOX, self.on_content_change, self.content_box)
 
 
-            if self.current_ioc.version != "1.0":
+            if current_ioc.version != "1.0":
                 self.Bind(wx.EVT_CHECKBOX, self.on_negate_change, negate_box)
                 self.Bind(wx.EVT_CHECKBOX, self.on_preserve_case_change, preserve_case_box)
 
         #Insert Parameters list
 
-        if self.current_ioc.version != "1.0":
+        if current_ioc.version != "1.0":
 
 
             hbox3 = wx.BoxSizer(wx.HORIZONTAL)
 
-            self.parameters_list_ctrl = ParameterListCtrl(self, indicator_uuid)
+            self.parameters_list_ctrl = ParamListCtrl(self, indicator_uuid, current_ioc.parameters, self.parameters, context_type)
             hbox3.Add(self.parameters_list_ctrl, proportion = 1, flag=wx.EXPAND | wx.RIGHT , border=5)
 
 
@@ -811,6 +1182,8 @@ class IndicatorDialog(wx.Dialog):
             self.Bind(wx.EVT_BUTTON, self.on_param_add, self.indicator_addparam_button)
 
             self.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.on_param_activated, self.parameters_list_ctrl)
+        else:
+            self.parameters_list_ctrl = None
 
 
         button_sizer = wx.StdDialogButtonSizer()
@@ -831,6 +1204,8 @@ class IndicatorDialog(wx.Dialog):
 
     def on_context_type_change(self, event):
         self.element.find('Context').set('type', self.context_type_box.GetValue())
+        if self.parameters_list_ctrl != None:
+            self.parameters_list_ctrl.current_context = self.context_type_box.GetValue()
         try:
             new_search_list = sorted(self.indicator_terms[self.context_type_box.GetValue()].keys())
         except:
@@ -849,7 +1224,7 @@ class IndicatorDialog(wx.Dialog):
                 self.element.find('Content').set('type', content_type)
                 self.element.find('Context').set('document', context_doc)
         except:
-            pass
+            pass #FIXME
 
     def on_condition_change(self, event):
         self.element.set('condition', self.condition_box.GetValue())
@@ -927,9 +1302,11 @@ class PyIOCeHelpMenu(wx.Menu):
 class PyIOCeTermsMenu(wx.Menu):
     def __init__(self):
         wx.Menu.__init__(self)
-        self.Append(wx.ID_PROPERTIES, "&Indicator Terms")
-        self.Append(wx.ID_CONVERT, "&Term Conversion Map")
-
+        self.Append(wx.ID_PROPERTIES, "&Modify Indicator Terms")
+        self.Append(wx.ID_FILE7, "&Modify Parameters")
+        self.Append(wx.ID_CONVERT, "&Modify Term Conversion Map")
+        self.Append(wx.ID_FILE8, "&Export Indicator Terms")
+        self.Append(wx.ID_FILE9, "&Export Parameters")
 
 class PyIOCeMenuBar(wx.MenuBar):
     def __init__(self):
@@ -980,13 +1357,20 @@ class IOCTreeCtrl(wx.TreeCtrl):
         self.Bind(wx.EVT_TOOL, self.on_delete, id=wx.ID_FILE6)
 
   
-    def set_config(self, preferences, indicator_terms):
+    def set_config(self, preferences, indicator_terms, parameters = None):
         #Use a temporary copy of preferences so that a failover default_context switch does not become permanent
         self.preferences = copy.deepcopy(preferences)
         self.indicator_terms = indicator_terms
         #Failover default_context if the current default_context is not in the current indicator_terms.  This is primarily for supporting the legacy MIR terms for OpenIOC 1.0
-        if self.preferences["default_context"] not in self.indicator_terms.keys():
-            self.preferences["default_context"] = self.indicator_terms.keys()[0]
+        if len(self.indicator_terms.keys()) > 0:
+            if self.preferences["default_context"] not in self.indicator_terms.keys():
+                self.preferences["default_context"] = self.indicator_terms.keys()[0]
+        else:
+            self.preferences["default_context"] = ""
+        if parameters != None:
+            self.parameters = copy.deepcopy(parameters)
+        else:
+            self.parameters = None
 
     def is_descendent(self, dst_item_id, src_item_id):
         if dst_item_id == self.root_item_id:
@@ -1052,7 +1436,6 @@ class IOCTreeCtrl(wx.TreeCtrl):
                 parent_element.append(item['data'])
             if len(item['children']) > 0:
                 for child_element in item['data'].findall('*'):
-                    print child_element.tag
                     item['data'].remove(child_element)
 
                 for child in item['children']:
@@ -1129,7 +1512,7 @@ class IOCTreeCtrl(wx.TreeCtrl):
             current_indicator_element = self.GetItemData(self.current_indicator_id).GetData()
             new_indicator_element = copy.deepcopy(current_indicator_element)
 
-            indicator_dialog = IndicatorDialog(self, element=new_indicator_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms)
+            indicator_dialog = IndicatorDialog(self, element=new_indicator_element, current_ioc=self.current_ioc, indicator_terms = self.indicator_terms, parameters = self.parameters)
             indicator_dialog.CenterOnScreen()
         
             if indicator_dialog.ShowModal() == wx.ID_OK:
@@ -1453,21 +1836,24 @@ class LinkListCtrl(wx.ListCtrl, ColumnSorterMixin):
         link_dialog.Destroy()
 
 
-class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
-    def __init__(self, parent, indicator_id):
+class ParamListCtrl(wx.ListCtrl, ColumnSorterMixin):
+    def __init__(self, parent, indicator_id, ioc_parameters, parameters, current_context):
         wx.ListCtrl.__init__(self, parent, -1, style=wx.LC_REPORT|wx.BORDER_SUNKEN)
         ColumnSorterMixin.__init__(self, 3)
 
         self.itemDataMap = {}
         self.indicator_id = indicator_id
-        self.parameters = parent.current_ioc.parameters
+
+        self.ioc_parameters = ioc_parameters
+        self.parameters = parameters
+        self.current_context = parent.context_type_box.GetValue()
 
         self.InsertColumn(0, 'Name')
         self.InsertColumn(1, 'Value', width = 300)
 
-        parameters = self.parameters.findall("param[@ref-id='"+ self.indicator_id +"']")
-        if parameters != None:
-            for param in parameters:
+        term_parameters = self.ioc_parameters.findall("param[@ref-id='"+ self.indicator_id +"']")
+        if term_parameters != None:
+            for param in term_parameters:
                 index = len(self.itemDataMap)
                 
                 param_name = param.get('name')
@@ -1497,7 +1883,7 @@ class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.InsertStringItem(index, " " + param_name)
         self.SetStringItem(index, 1, " " + param_value)
         self.SetItemData(index, index)
-        self.parameters.append(new_param)
+        self.ioc_parameters.append(new_param)
 
     def del_param(self, param):
         index = self.GetItemData(param)
@@ -1505,26 +1891,40 @@ class ParameterListCtrl(wx.ListCtrl, ColumnSorterMixin):
         self.itemDataMap.pop(self.GetItemData(param))
         self.DeleteItem(param)
 
-        element = self.parameters.find("param[@id='"+ param_id +"']")
-        self.parameters.remove(element)
+        element = self.ioc_parameters.find("param[@id='"+ param_id +"']")
+        self.ioc_parameters.remove(element)
 
     def edit_param(self, param):
         index = self.GetItemData(param)
         param_id, param_name, param_value = self.itemDataMap[index]
 
-        element = self.parameters.find("param[@id='"+ param_id +"']")
+        element = self.ioc_parameters.find("param[@id='"+ param_id +"']")
 
         new_param_element = copy.deepcopy(element)
 
-        param_dailog = ParamDialog(self, param=new_param_element)
+        if self.parameters != None:
+            if self.current_context in self.parameters.keys():
+                param_list = self.parameters[self.current_context].keys()
+            else:
+                param_list = []
+
+
+        param_dailog = ParamDialog(self, param=new_param_element, param_list = param_list)
         param_dailog.CenterOnScreen()
     
         if param_dailog.ShowModal() == wx.ID_OK:
+            param_name = new_param_element.get('name')
+            param_value = new_param_element.find('value').text
+
+            if param_name in self.parameters[self.current_context].keys():
+                new_param_element.find('value').set('type',self.parameters[self.current_context][param_name]['value_type'])
+            else:
+                new_param_element.find('value').set('type', 'string')
+
             parent_element = element.getparent()
             parent_element.insert(parent_element.index(element),new_param_element)
             parent_element.remove(element)
-            param_name = new_param_element.get('name')
-            param_value = new_param_element.find('value').text
+
 
             self.SetStringItem(param, 0, " " + param_name)
             self.SetStringItem(param, 1, " " + param_value)
@@ -1753,6 +2153,16 @@ class PyIOCe(wx.Frame):
             self.indicator_terms = json.loads(indicator_terms_file.read())
             indicator_terms_file.close()
 
+        try:
+            parameters_file = open(BASE_DIR + 'parameters.current','r')
+            self.parameters = json.loads(parameters_file.read())
+            parameters_file.close()
+        except:
+            self.parameters = {}
+            # parameters_file = open(BASE_DIR + 'parameters.default','r')
+            # self.parameters = json.loads(parameters_file.read())
+            # parameters_file.close()
+
         #For OpenIOC 1.0 indicators only support the legacy MIR terms so we prepare a static legacy list of terms for 1.0 IOCs
         legacy_indicator_terms_file = open(BASE_DIR + 'indicator_terms.legacy','r')
         self.legacy_indicator_terms = json.loads(legacy_indicator_terms_file.read())
@@ -1809,7 +2219,7 @@ class PyIOCe(wx.Frame):
         self.ioc_metadata_panel = IOCMetadataPanel(hsplitter)
 
         self.ioc_notebook = IOCNotebook(hsplitter)
-        self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
+        self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms, self.parameters)
 
         vsplitter.SplitVertically(self.ioc_list_panel, hsplitter)
         hsplitter.SplitHorizontally(self.ioc_metadata_panel, self.ioc_notebook)
@@ -1828,7 +2238,10 @@ class PyIOCe(wx.Frame):
         self.Bind(wx.EVT_MENU, self.on_help, id=wx.ID_HELP)
         self.Bind(wx.EVT_MENU, self.on_clone, id=wx.ID_DUPLICATE)
         self.Bind(wx.EVT_MENU, self.on_preferences, id=wx.ID_PREFERENCES)
-        self.Bind(wx.EVT_MENU, self.on_terms, id=wx.ID_PROPERTIES)
+        self.Bind(wx.EVT_MENU, self.on_modify_terms, id=wx.ID_PROPERTIES)
+        self.Bind(wx.EVT_MENU, self.on_modify_parameters, id=wx.ID_FILE7)
+        self.Bind(wx.EVT_MENU, self.on_export_terms, id=wx.ID_FILE8)
+        self.Bind(wx.EVT_MENU, self.on_export_parameters, id=wx.ID_FILE9)
         self.Bind(wx.EVT_MENU, self.on_map, id=wx.ID_CONVERT)
 
         accel_table = wx.AcceleratorTable([
@@ -1897,6 +2310,25 @@ class PyIOCe(wx.Frame):
 
         return selected_dir
 
+    def export_data(self, contexts, source):
+        data = {}
+        for context in contexts:
+            data[context] = copy.deepcopy(source[context])
+
+        select_file_dialog = wx.FileDialog(self, "Choose a file:", style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT)
+
+        if select_file_dialog.ShowModal() == wx.ID_OK:
+            selected_file = select_file_dialog.GetPath()
+        else:
+            selected_file = None
+            
+        select_file_dialog.Destroy()
+
+        if selected_file != None:
+            export_file = open(selected_file,'w')
+            export_file.write(json.dumps(data))
+            export_file.close()
+
     def on_esc(self, event):
         if event.GetKeyCode() == wx.WXK_ESCAPE:
             self.ioc_list_panel.ioc_list_ctrl.SetFocus()
@@ -1924,27 +2356,59 @@ class PyIOCe(wx.Frame):
             preferences_file.write(json.dumps(self.preferences))
             preferences_file.close()
 
-            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms, self.parameters)
 
         preferences_dialog.Destroy()
 
 
-    def on_terms(self, event):
-        terms_dialog = TermsDialog(self)
+    def on_modify_terms(self, event):
+        terms_dialog = ModTermsDialog(self)
         terms_dialog.CenterOnScreen()
 
         if terms_dialog.ShowModal() == wx.ID_OK:
             self.indicator_terms = terms_dialog.indicator_terms
-            indicator_terms_file = open(BASE_DIR + 'indicator_terms.json','w')
+            indicator_terms_file = open(BASE_DIR + 'indicator_terms.current','w')
             indicator_terms_file.write(json.dumps(self.indicator_terms))
             indicator_terms_file.close()
 
-            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms, self.parameters)
 
         terms_dialog.Destroy()
+
+    def on_modify_parameters(self, event):
+        parameters_dialog = ModParametersDialog(self)
+        parameters_dialog.CenterOnScreen()
+
+        if parameters_dialog.ShowModal() == wx.ID_OK:
+            self.parameters = parameters_dialog.parameters
+            parameters_file = open(BASE_DIR + 'parameters.current','w')
+            parameters_file.write(json.dumps(self.parameters))
+            parameters_file.close()
+
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms, self.parameters)
+
+        parameters_dialog.Destroy()
+   
+    def on_export_terms(self, event):
+        export_dialog = ExportDialog(self, self.indicator_terms.keys())
+        export_dialog.CenterOnScreen()
+
+        if export_dialog.ShowModal() == wx.ID_OK:
+            if export_dialog.selected_contexts:
+                self.export_data(export_dialog.selected_contexts, self.indicator_terms)
+        export_dialog.Destroy()
+
+    def on_export_parameters(self, event):
+        export_dialog = ExportDialog(self, self.parameters.keys())
+        export_dialog.CenterOnScreen()
+
+        if export_dialog.ShowModal() == wx.ID_OK:
+            if export_dialog.selected_contexts:
+                self.export_data(export_dialog.selected_contexts, self.parameters)
+        export_dialog.Destroy()
         
     def on_map(self, event):
-        pass
+        pass #FIXME
 
     def on_about(self, event):
         about_dialog = AboutDialog(self)
@@ -2021,7 +2485,7 @@ class PyIOCe(wx.Frame):
         if self.current_ioc.version == "1.0":
             self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.legacy_indicator_terms)
         else:
-            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms)
+            self.ioc_notebook.ioc_indicator_page.ioc_tree_ctrl.set_config(self.preferences, self.indicator_terms, self.parameters)
         self.update()
 
     def on_ioc_activated(self,event):
