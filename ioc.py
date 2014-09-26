@@ -37,11 +37,6 @@ def generate_label(element):
 
         context = element.find('Context')
         content = element.find('Content')
-        
-        # condition = element.get('condition')
-        # search_type = context.get('type')
-        # search_path = context.get('search')
-        # search_text = content.text
 
         condition = ""
         search_type = ""
