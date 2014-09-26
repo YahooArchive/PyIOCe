@@ -1,4 +1,4 @@
-Python IOC Editor v0.9.3
+Python IOC Editor v0.9.4
 
 
 Description: 
@@ -19,19 +19,21 @@ lxml
 
 Features:
 - Almost entirely keyboard driven
-- Support for opening and editing OpenIOC 1.0 and 1.1 IOCs simultaneously
+- Support for opening and editing OpenIOC 1.0 and 1.1 IOCs simultaneously (OpenIOC 1.0 support is MIR only using legacy MIR terms)
 - Indicator Term management
+- Parameter management
 - Preferences for default IOC version, default IOC context, and default IOC author
 - IOC Cloning
 - Revert IOC Changes to last saved
 - Cut/Copy/Paste & drag and drop for Indicator tree
+- Indicator Terms and Paramters defined for MIR, Yara, and Splunk
 
 Roadmap:
 - Term Conversion Map management
 - Term Conversions to quickly change context types of IndicatorTerms based on the Conversion Map
-- Import IndicatorTerms from Intel sources such as CybOX, STIX, or CRITS
+- Import Indicator Terms from Intel sources such as CybOX, STIX, or CRITS
 - IOC Validation/Testing
-- More well defined Indicator Terms for GRR, Splunk, Yara, Snort, and other systems
+- More well defined Indicator Terms for GRR, Snort, and other systems
 
 
 
