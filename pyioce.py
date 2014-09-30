@@ -1072,6 +1072,12 @@ class IndicatorDialog(wx.Dialog):
         if self.element.tag == "Indicator":
             self.SetTitle("Indicator")
 
+            child = self.element.find('IndicatorItem')
+            if child != None:
+                context_type = child.find('Context').attrib['type']
+            else:
+                context_type = parent.preferences["default_context"]            
+
             vbox = wx.BoxSizer(wx.VERTICAL)
             hbox1 = wx.BoxSizer(wx.HORIZONTAL)
             gs = wx.GridSizer(1,2,0,0)
@@ -1846,7 +1852,7 @@ class ParamListCtrl(wx.ListCtrl, ColumnSorterMixin):
 
         self.ioc_parameters = ioc_parameters
         self.parameters = parameters
-        self.current_context = parent.context_type_box.GetValue()
+        self.current_context = current_context
 
         self.InsertColumn(0, 'Name')
         self.InsertColumn(1, 'Value', width = 300)
