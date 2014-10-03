@@ -1922,7 +1922,7 @@ class ParamListCtrl(wx.ListCtrl, ColumnSorterMixin):
             param_name = new_param_element.get('name')
             param_value = new_param_element.find('value').text
 
-            if param_name in self.parameters[self.current_context].keys():
+            if param_name in param_list:
                 new_param_element.find('value').set('type',self.parameters[self.current_context][param_name]['value_type'])
             else:
                 new_param_element.find('value').set('type', 'string')
