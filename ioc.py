@@ -161,7 +161,10 @@ class IOC():
         self.attributes['last-modified'] = ioc_et.get_current_date()
 
     def get_author(self):
-        return self.author.text
+        if self.author.text is not None:
+            return self.author.text
+        else:
+            return ""
 
     def set_author(self, author):
         self.author.text = author
