@@ -2165,9 +2165,9 @@ class PyIOCe(wx.Frame):
             parameters_file.close()
         except:
             self.parameters = {}
-            # parameters_file = open(BASE_DIR + 'parameters.default','r')
-            # self.parameters = json.loads(parameters_file.read())
-            # parameters_file.close()
+            parameters_file = open(BASE_DIR + 'parameters.default','r')
+            self.parameters = json.loads(parameters_file.read())
+            parameters_file.close()
 
         #For OpenIOC 1.0 indicators only support the legacy MIR terms so we prepare a static legacy list of terms for 1.0 IOCs
         legacy_indicator_terms_file = open(BASE_DIR + 'indicator_terms.legacy','r')
