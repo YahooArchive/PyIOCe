@@ -1,4 +1,4 @@
-Python IOC Editor v0.9.5
+Python IOC Editor v0.9.6
 
 
 Description: 
@@ -26,7 +26,7 @@ Features:
 - IOC Cloning
 - Revert IOC Changes to last saved
 - Cut/Copy/Paste & drag and drop for Indicator tree
-- Indicator Terms and Paramters defined for MIR, Yara, and Splunk
+- Indicator Terms and Paramters defined for MIR, Yara, Splunk, and Volatility
 
 Roadmap:
 - Term Conversion Map management

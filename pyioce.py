@@ -2566,7 +2566,7 @@ class PyIOCe(wx.Frame):
 
 if __name__ == '__main__':
     BASE_DIR = "./"
-    VERSION = "0.9.5"
+    VERSION = "0.9.6"
     app = wx.App()
 
     PyIOCe(None)
