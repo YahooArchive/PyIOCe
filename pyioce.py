@@ -1534,6 +1534,7 @@ class IOCTreeCtrl(wx.TreeCtrl):
             event.Skip()
 
     def on_indicator_begin_drag(self, event):
+        self.current_indicator_id = event.GetItem()
         if self.current_indicator_id != self.root_item_id:
             event.Allow()
 
