@@ -1421,6 +1421,7 @@ class IOCTreeCtrl(wx.TreeCtrl):
         item = {}
         item['data'] = self.GetItemPyData(node)
         item['was-expanded'] = self.IsExpanded(node)
+        item['image'] = self.GetItemImage(node)
         item['children'] = []
         
         children = self.GetChildrenCount(node, False)
@@ -1474,6 +1475,8 @@ class IOCTreeCtrl(wx.TreeCtrl):
             self.SetItemTextColour(insert_item_id, color)
             self.SetItemPyData(insert_item_id, item['data'])
             
+            if item['image'] != -1: 
+                self.SetItemImage(insert_item_id, 0, item['image'])
 
             if item['was-expanded'] == True:
                 expanded_item_list.append(insert_item_id)
