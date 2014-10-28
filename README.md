@@ -1,4 +1,4 @@
-Python IOC Editor v0.9.6
+Python IOC Editor v0.9.7
 
 
 Description: 
@@ -29,12 +29,12 @@ Features:
 - Indicator Terms and Paramters defined for MIR, Yara, Splunk, and Volatility
 
 Roadmap:
-- Term Conversion Map management
+- Term Conversion Map to associate related terms across context types
 - Term Conversions to quickly change context types of IndicatorTerms based on the Conversion Map
 - Import Indicator Terms from Intel sources such as CybOX, STIX, or CRITS
 - IOC Validation/Testing
-- More well defined Indicator Terms for GRR, Snort, and other systems
-
+- More well defined Indicator Terms and parameters for GRR, Snort, and other systems
+- Output relevant formats for use, Splunk searches from Splunk terms, Yara signature outputs from Yara terms, XPATH from MIR terms, etc
 
 
 Bug reports, questions, comments, requests:
