@@ -180,7 +180,10 @@ class IOC():
 
     def get_desc(self):
         if self.desc.text is not None:
-            return self.desc.text
+            if os.name == "nt":
+                return self.desc.text.replace('\n', '\r\n')
+            else:
+                return self.desc.text
         else:
             return ""
 
